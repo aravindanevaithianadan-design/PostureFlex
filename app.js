@@ -28,7 +28,6 @@ function App() {
         deviations: 0
     });
     const [activeReportPreview, setActiveReportPreview] = useState(null);
-    const [sidebarOpen, setSidebarOpen] = useState(false); // mobile off-canvas sidebar toggle
     // Initial load
     useEffect(() => {
         const authenticated = window.PF_Auth.isAuthenticated();
@@ -101,26 +100,23 @@ function App() {
     };
     // Render appropriate pages based on route
     return /*#__PURE__*/React.createElement("div", {
-        className: `app-container ${currentRoute === "login" ? "no-sidebar" : ""}`
+        className: "app-container"
     }, currentRoute !== "login" && /*#__PURE__*/React.createElement(Sidebar, {
         currentRoute: currentRoute,
-        isOpen: sidebarOpen,
         onNavigate: route => {
             // Clean up camera if moving away from bpt1
             setCurrentRoute(route);
-            setSidebarOpen(false); // auto-close on mobile after navigating
         },
         onLogout: handleLogout
-    }), currentRoute !== "login" && sidebarOpen && /*#__PURE__*/React.createElement("div", {
-        className: "sidebar-overlay",
-        onClick: () => setSidebarOpen(false)
     }), /*#__PURE__*/React.createElement("div", {
-        className: "main-content"
+        className: "main-content",
+        style: {
+            marginLeft: currentRoute === "login" ? "0" : "260px"
+        }
     }, currentRoute !== "login" && /*#__PURE__*/React.createElement(TopHeader, {
         user: userSession,
         dbState: dbState,
-        onSettings: () => setCurrentRoute("settings"),
-        onMenuToggle: () => setSidebarOpen(prev => !prev)
+        onSettings: () => setCurrentRoute("settings")
     }), currentRoute === "login" && /*#__PURE__*/React.createElement(LoginPage, {
         onLoginSuccess: handleLoginSuccess
     }), currentRoute === "dashboard" && /*#__PURE__*/React.createElement(DashboardView, {
@@ -185,11 +181,10 @@ function App() {
 function Sidebar({
     currentRoute,
     onNavigate,
-    onLogout,
-    isOpen
+    onLogout
 }) {
     return /*#__PURE__*/React.createElement("aside", {
-        className: `sidebar ${isOpen ? "sidebar-open" : ""}`
+        className: "sidebar"
     }, /*#__PURE__*/React.createElement("div", {
         className: "sidebar-logo"
     }, /*#__PURE__*/React.createElement("div", {
@@ -249,7 +244,7 @@ function Sidebar({
         strokeLinecap: "round",
         strokeLinejoin: "round",
         d: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-    })), "BPT2 (Photo Upload)"), /*#__PURE__*/React.createElement("li", {
+    })), "BPT2 (4-View Posture Scan)"), /*#__PURE__*/React.createElement("li", {
         className: `menu-item ${currentRoute === "reports" ? "active" : ""}`,
         onClick: () => onNavigate("reports")
     }, /*#__PURE__*/React.createElement("svg", {
@@ -303,27 +298,13 @@ function Sidebar({
 function TopHeader({
     user,
     dbState,
-    onSettings,
-    onMenuToggle
+    onSettings
 }) {
     return /*#__PURE__*/React.createElement("header", {
         className: "top-header"
     }, /*#__PURE__*/React.createElement("div", {
         className: "header-title"
-    }, /*#__PURE__*/React.createElement("button", {
-        className: "hamburger-btn",
-        onClick: onMenuToggle,
-        "aria-label": "Toggle menu"
-    }, /*#__PURE__*/React.createElement("svg", {
-        fill: "none",
-        viewBox: "0 0 24 24",
-        stroke: "currentColor",
-        strokeWidth: "2"
-    }, /*#__PURE__*/React.createElement("path", {
-        strokeLinecap: "round",
-        strokeLinejoin: "round",
-        d: "M4 6h16M4 12h16M4 18h16"
-    }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", null, "PostureFlex"), /*#__PURE__*/React.createElement("p", null, "Clinical Biomechanical Assessment Station"))), /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("h1", null, "PostureFlex"), /*#__PURE__*/React.createElement("p", null, "Clinical Biomechanical Assessment Station")), /*#__PURE__*/React.createElement("div", {
         className: "header-actions"
     }, /*#__PURE__*/React.createElement("div", {
         className: "mode-banner demo-mode",
@@ -555,7 +536,7 @@ function IntakeModal({
             width: "100%",
             marginTop: 10
         }
-    }, "Proceed to ", moduleTarget === 'bpt1' ? "Live Camera" : "Photo Upload", " Analysis"))));
+    }, "Proceed to ", moduleTarget === 'bpt1' ? "Live Camera" : "4-View Posture Scan", " Analysis"))));
 }
 // Dashboard Page View
 function DashboardView({
@@ -569,7 +550,7 @@ function DashboardView({
         className: "animate-fade-in"
     }, /*#__PURE__*/React.createElement("div", {
         className: "hero-card"
-    }, /*#__PURE__*/React.createElement("h2", null, "Clinical Assessment Hub"), /*#__PURE__*/React.createElement("p", null, "Welcome to the PostureFlex assessment lab. Physiotherapy students can evaluate patient mechanics using live cameras (BPT1) or single photographs (BPT2) powered by real-time computer vision joint tracking.")), /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("h2", null, "Clinical Assessment Hub"), /*#__PURE__*/React.createElement("p", null, "Welcome to the PostureFlex assessment lab. Physiotherapy students can evaluate patient mechanics using live-camera squat analysis (BPT1) or a guided live-camera 4-view static posture screening -- Anterior, Posterior, Right Lateral, Left Lateral (BPT2) -- both powered by real-time computer vision joint tracking.")), /*#__PURE__*/React.createElement("div", {
         className: "stats-grid"
     }, /*#__PURE__*/React.createElement("div", {
         className: "stat-card glass"
@@ -635,10 +616,10 @@ function DashboardView({
         className: "module-card glass glass-hover"
     }, /*#__PURE__*/React.createElement("div", {
         className: "module-tag"
-    }, "MODULE 2"), /*#__PURE__*/React.createElement("h3", null, "BPT2 - Photo Posture Scan"), /*#__PURE__*/React.createElement("p", null, "Examine static clinical alignment of key anatomical markers from uploaded images or captured snaps. Ideal for formal static clinical report creation."), /*#__PURE__*/React.createElement("button", {
+    }, "MODULE 2"), /*#__PURE__*/React.createElement("h3", null, "BPT2 - 4-View Live Posture Scan"), /*#__PURE__*/React.createElement("p", null, "Guided live-camera capture of Anterior, Posterior, Right Lateral, and Left Lateral standing views, analyzing shoulder/pelvic level, spinal alignment, knee alignment, and sagittal plumb-line posture at each key anatomical landmark."), /*#__PURE__*/React.createElement("button", {
         className: "btn btn-primary",
         onClick: onStartBPT2
-    }, "Upload Scan Photo"))), /*#__PURE__*/React.createElement("div", {
+    }, "Launch 4-View Scan"))), /*#__PURE__*/React.createElement("div", {
         className: "glass",
         style: {
             padding: 24
@@ -946,6 +927,8 @@ function BPT1Module({
             recommendations: reportPreviewData.recommendations
         };
         await onSaveAssessment(payload);
+        // Automatically download the PDF report once the assessment is saved
+        window.PF_Reports.downloadClientPDF(reportPreviewData);
         setSaving(false);
     };
     const handleTriggerDownload = () => {
@@ -1156,152 +1139,167 @@ function BPT1Module({
         reportData: reportPreviewData
     })));
 }
-// BPT2 Module View (Photo Posture Scan)
+// BPT2 Module View (Live Camera 4-View Posture Screening)
+const BPT2_VIEW_CONFIG = [
+    { key: "anterior", label: "Anterior View", analyzeFn: "analyzeAnteriorView", instructions: "Face the camera directly. Stand naturally with arms relaxed at your sides, feet shoulder-width apart." },
+    { key: "posterior", label: "Posterior View", analyzeFn: "analyzePosteriorView", instructions: "Turn around so your back faces the camera. Keep arms relaxed at your sides." },
+    { key: "rightLateral", label: "Right Lateral View", analyzeFn: "analyzeRightLateralView", instructions: "Turn to show your right side profile to the camera, standing naturally." },
+    { key: "leftLateral", label: "Left Lateral View", analyzeFn: "analyzeLeftLateralView", instructions: "Turn to show your left side profile to the camera, standing naturally." }
+];
 function BPT2Module({
     assessment,
     onSaveAssessment,
     onCancel
 }) {
-    const [step, setStep] = useState(2); // 2: upload/analysis, 3: report preview
-    const [imageSrc, setImageSrc] = useState(null);
-    const [analyzing, setAnalyzing] = useState(false);
-    const [assessmentRecord, setAssessmentRecord] = useState(null);
+    const [step, setStep] = useState(2); // 2: 4-view live capture, 3: preview report
+    const [viewIndex, setViewIndex] = useState(0);
+    const [outOfFrame, setOutOfFrame] = useState(true);
+    const [trackingConfidence, setTrackingConfidence] = useState(0);
+    const [liveMetrics, setLiveMetrics] = useState(null);
+    const [capturedViews, setCapturedViews] = useState({});
     const [reportPreviewData, setReportPreviewData] = useState(null);
     const [saving, setSaving] = useState(false);
-    const imageRef = useRef(null);
+    const videoRef = useRef(null);
     const canvasRef = useRef(null);
-    const fileInputRef = useRef(null);
-    const handleFileChange = e => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = event => {
-            setImageSrc(event.target.result);
-            setAssessmentRecord(null); // Clear old results
-        };
-        reader.readAsDataURL(file);
-    };
-    const triggerFileSelect = () => {
-        fileInputRef.current.click();
-    };
-    // Run MediaPipe Pose analysis on image src
-    const runPhotoAnalysis = () => {
-        if (!imageSrc) return;
-        setAnalyzing(true);
-        const img = new Image();
-        img.src = imageSrc;
-        img.onload = async () => {
+    const poseRef = useRef(null);
+    const cameraRef = useRef(null);
+    const viewIndexRef = useRef(0);
+    const liveAnalysisRef = useRef(null);
+
+    useEffect(() => {
+        viewIndexRef.current = viewIndex;
+    }, [viewIndex]);
+
+    useEffect(() => {
+        if (step === 2) {
+            startCamera();
+        } else {
+            stopCamera();
+        }
+        return () => stopCamera();
+    }, [step]);
+
+    const startCamera = async () => {
+        setTimeout(async () => {
+            const videoElement = videoRef.current;
             const canvasElement = canvasRef.current;
-            if (!canvasElement) return;
+            if (!videoElement || !canvasElement) return;
             const canvasCtx = canvasElement.getContext('2d');
-            canvasElement.width = img.naturalWidth;
-            canvasElement.height = img.naturalHeight;
 
-            // Draw image on canvas
-            canvasCtx.drawImage(img, 0, 0, canvasElement.width, canvasElement.height);
-
-            // Load MediaPipe
             const poseInstance = new window.Pose({
                 locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
             });
             poseInstance.setOptions({
                 modelComplexity: 1,
-                smoothLandmarks: false,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
+                smoothLandmarks: true,
+                enableSegmentation: false,
+                minDetectionConfidence: 0.55,
+                minTrackingConfidence: 0.55
             });
             poseInstance.onResults(results => {
-                setAnalyzing(false);
+                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                canvasCtx.save();
+                canvasCtx.translate(canvasElement.width, 0);
+                canvasCtx.scale(-1, 1);
+                canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+                canvasCtx.restore();
 
-                // Redraw image
-                canvasCtx.drawImage(img, 0, 0, canvasElement.width, canvasElement.height);
-                if (results.poseLandmarks) {
-                    const analysis = window.PF_Pose.analyzeLandmarks(results.poseLandmarks);
-                    if (analysis.outOfFrame) {
-                        alert("Low detection confidence. Ensure patient body is fully visible in the uploaded photo.");
-                        return;
+                const activeConfig = BPT2_VIEW_CONFIG[viewIndexRef.current];
+                if (results.poseLandmarks && activeConfig) {
+                    const result = window.PF_Pose[activeConfig.analyzeFn](results.poseLandmarks);
+                    setTrackingConfidence(result.confidence || 0);
+                    setOutOfFrame(!!result.outOfFrame);
+                    if (!result.outOfFrame) {
+                        setLiveMetrics(result.metrics);
+                        liveAnalysisRef.current = result;
+                        drawBPT2ViewOverlay(canvasCtx, activeConfig.key, result.points);
+                    } else {
+                        liveAnalysisRef.current = null;
                     }
-                    const evaluated = window.PF_Pose.evaluatePosture(analysis);
-                    setAssessmentRecord({
-                        analysis,
-                        evaluated
-                    });
-
-                    // Draw overlays on image
-                    drawStaticOverlays(canvasCtx, results.poseLandmarks, analysis, canvasElement.width, canvasElement.height);
                 } else {
-                    alert("No pose landmarks detected in the photo. Please check the image alignment.");
+                    setOutOfFrame(true);
+                    liveAnalysisRef.current = null;
                 }
-                poseInstance.close();
             });
-            await poseInstance.send({
-                image: img
-            });
-        };
+            poseRef.current = poseInstance;
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480 }
+                });
+                videoElement.srcObject = stream;
+                videoElement.play();
+
+                let active = true;
+                const processFrame = async () => {
+                    if (!active) return;
+                    if (videoElement.readyState >= 2) {
+                        await poseInstance.send({ image: videoElement });
+                    }
+                    requestAnimationFrame(processFrame);
+                };
+                cameraRef.current = {
+                    stop: () => {
+                        active = false;
+                        stream.getTracks().forEach(track => track.stop());
+                    }
+                };
+                requestAnimationFrame(processFrame);
+            } catch (err) {
+                console.error("Camera access error:", err);
+                alert("Camera access denied or device busy. Please ensure camera permissions are active.");
+                onCancel();
+            }
+        }, 300);
     };
-    const drawStaticOverlays = (ctx, landmarks, analysis, width, height) => {
-        const drawJointCircle = (lm, color) => {
-            ctx.beginPath();
-            ctx.arc(lm.x * width, lm.y * height, width * 0.01, 0, 2 * Math.PI);
-            ctx.fillStyle = color;
-            ctx.fill();
-            ctx.strokeStyle = "white";
-            ctx.lineWidth = width * 0.003;
-            ctx.stroke();
-        };
-        const drawBoneLine = (lm1, lm2, color) => {
-            ctx.beginPath();
-            ctx.moveTo(lm1.x * width, lm1.y * height);
-            ctx.lineTo(lm2.x * width, lm2.y * height);
-            ctx.strokeStyle = color;
-            ctx.lineWidth = width * 0.005;
-            ctx.stroke();
-        };
-        const drawAngleLabel = (lm, text) => {
-            ctx.font = `bold ${Math.round(width * 0.024)}px 'Outfit', sans-serif`;
-            ctx.fillStyle = "white";
-            ctx.strokeStyle = "black";
-            ctx.lineWidth = width * 0.006;
-            ctx.strokeText(text, lm.x * width + 10, lm.y * height - 5);
-            ctx.fillText(text, lm.x * width + 10, lm.y * height - 5);
-        };
-        const lShoulder = landmarks[11];
-        const rShoulder = landmarks[12];
-        const lHip = landmarks[23];
-        const rHip = landmarks[24];
-        const lKnee = landmarks[25];
-        const rKnee = landmarks[26];
-        const lAnkle = landmarks[27];
-        const rAnkle = landmarks[28];
-        const angles = analysis.angles;
 
-        // Draw bones
-        drawBoneLine(lShoulder, lHip, "#8b5cf6");
-        drawBoneLine(lHip, lKnee, "#8b5cf6");
-        drawBoneLine(lKnee, lAnkle, "#8b5cf6");
-        drawBoneLine(rShoulder, rHip, "#ec4899");
-        drawBoneLine(rHip, rKnee, "#ec4899");
-        drawBoneLine(rKnee, rAnkle, "#ec4899");
-
-        // Draw joints
-        drawJointCircle(lKnee, "#10b981");
-        drawJointCircle(rKnee, "#10b981");
-        drawJointCircle(lHip, "white");
-        drawJointCircle(rHip, "white");
-
-        // Labels
-        drawAngleLabel(lKnee, `${Math.round(angles.leftKnee)}°`);
-        drawAngleLabel(rKnee, `${Math.round(angles.rightKnee)}°`);
-        drawAngleLabel(lHip, `Trunk: ${Math.round(angles.avgTrunk)}°`);
+    const stopCamera = () => {
+        if (cameraRef.current) {
+            cameraRef.current.stop();
+            cameraRef.current = null;
+        }
+        if (poseRef.current) {
+            poseRef.current.close();
+            poseRef.current = null;
+        }
     };
-    const handleProceedToPreview = () => {
+
+    const handleCaptureView = () => {
         const canvasElement = canvasRef.current;
-        if (!canvasElement || !assessmentRecord) return;
+        const activeConfig = BPT2_VIEW_CONFIG[viewIndex];
+        if (!canvasElement || !activeConfig) return;
+        if (!liveAnalysisRef.current) {
+            alert("Patient not clearly detected. Please ensure the full body is visible before capturing this view.");
+            return;
+        }
         const dataUrl = canvasElement.toDataURL('image/png');
-        const evaluated = assessmentRecord.evaluated;
-        const analysis = assessmentRecord.analysis;
-        const interpretationText = window.PF_Pose.generateInterpretation(evaluated, analysis.squatState);
-        const recommendationsText = window.PF_Pose.generateRecommendations(evaluated);
+        const capturedResult = liveAnalysisRef.current;
+        const updated = {
+            ...capturedViews,
+            [activeConfig.key]: { analysis: capturedResult, image: dataUrl, label: activeConfig.label }
+        };
+        setCapturedViews(updated);
+
+        if (viewIndex < BPT2_VIEW_CONFIG.length - 1) {
+            liveAnalysisRef.current = null;
+            setOutOfFrame(true);
+            setViewIndex(viewIndex + 1);
+        } else {
+            finalizeReport(updated);
+        }
+    };
+
+    const finalizeReport = allViews => {
+        stopCamera();
+        const evaluation = window.PF_Pose.evaluateFullBodyPosture({
+            anterior: allViews.anterior?.analysis,
+            posterior: allViews.posterior?.analysis,
+            rightLateral: allViews.rightLateral?.analysis,
+            leftLateral: allViews.leftLateral?.analysis
+        });
+        const interpretationText = window.PF_Pose.generatePostureInterpretation(evaluation);
+        const recommendationsText = window.PF_Pose.generatePostureRecommendations(evaluation);
+
         setReportPreviewData({
             patient: {
                 id: assessment.patient.id,
@@ -1315,16 +1313,28 @@ function BPT2Module({
             session: {
                 date: new Date().toLocaleDateString(),
                 module: "BPT2",
-                risk_level: evaluated.overallStatus,
+                risk_level: evaluation.overallStatus,
                 notes: assessment.notes
             },
-            measurements: evaluated.measurements,
-            image_base64: dataUrl,
+            measurements: evaluation.measurements,
+            images: BPT2_VIEW_CONFIG.map(v => ({
+                label: v.label,
+                base64: allViews[v.key] ? allViews[v.key].image : null
+            })).filter(i => i.base64),
             interpretation: interpretationText,
             recommendations: recommendationsText
         });
         setStep(3);
     };
+
+    const handleRestartCapture = () => {
+        setCapturedViews({});
+        setViewIndex(0);
+        liveAnalysisRef.current = null;
+        setReportPreviewData(null);
+        setStep(2);
+    };
+
     const handleFinalSave = async () => {
         setSaving(true);
         const payload = {
@@ -1338,8 +1348,13 @@ function BPT2Module({
             recommendations: reportPreviewData.recommendations
         };
         await onSaveAssessment(payload);
+        window.PF_Reports.downloadClientPDF(reportPreviewData);
         setSaving(false);
     };
+
+    const activeConfig = BPT2_VIEW_CONFIG[viewIndex];
+    const metricEntries = liveMetrics ? Object.entries(liveMetrics) : [];
+
     return /*#__PURE__*/React.createElement("div", {
         className: "animate-fade-in"
     }, /*#__PURE__*/React.createElement("div", {
@@ -1356,7 +1371,7 @@ function BPT2Module({
         className: "step-num"
     }, "2"), /*#__PURE__*/React.createElement("div", {
         className: "step-label"
-    }, "Image Upload")), /*#__PURE__*/React.createElement("div", {
+    }, step === 2 ? `View ${viewIndex + 1} of 4` : "4-View Capture")), /*#__PURE__*/React.createElement("div", {
         className: `step ${step === 3 ? "active" : ""}`
     }, /*#__PURE__*/React.createElement("div", {
         className: "step-num"
@@ -1365,155 +1380,188 @@ function BPT2Module({
     }, "Preview Report"))), step === 2 && /*#__PURE__*/React.createElement("div", {
         className: "analysis-layout"
     }, /*#__PURE__*/React.createElement("div", {
-        style: {
-            display: "flex",
-            flexDirection: "column",
-            gap: 16
-        }
-    }, !imageSrc ? /*#__PURE__*/React.createElement("div", {
-        className: "upload-container",
-        onClick: triggerFileSelect
+        style: { display: "flex", flexDirection: "column", gap: 16 }
     }, /*#__PURE__*/React.createElement("div", {
-        className: "upload-icon"
+        className: "glass",
+        style: { padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
+        style: { margin: 0 }
+    }, activeConfig.label), /*#__PURE__*/React.createElement("p", {
+        style: { margin: "4px 0 0", color: "var(--text-muted)", fontSize: 13 }
+    }, activeConfig.instructions)), /*#__PURE__*/React.createElement("div", {
+        className: "view-progress-dots"
+    }, BPT2_VIEW_CONFIG.map((v, idx) => /*#__PURE__*/React.createElement("div", {
+        key: v.key,
+        className: `view-progress-dot ${capturedViews[v.key] ? "done" : idx === viewIndex ? "active" : ""}`,
+        title: v.label
+    })))), /*#__PURE__*/React.createElement("div", {
+        className: "camera-panel"
+    }, /*#__PURE__*/React.createElement("video", {
+        ref: videoRef,
+        className: "video-element",
+        muted: true,
+        style: { display: "none" }
+    }), /*#__PURE__*/React.createElement("canvas", {
+        ref: canvasRef,
+        className: "canvas-element",
+        width: "640",
+        height: "480"
+    }), outOfFrame && /*#__PURE__*/React.createElement("div", {
+        className: "out-of-frame-overlay"
     }, /*#__PURE__*/React.createElement("svg", {
         viewBox: "0 0 24 24",
         fill: "none",
-        stroke: "currentColor",
-        strokeWidth: "2"
+        stroke: "white",
+        strokeWidth: "2",
+        style: { width: 48, height: 48 }
     }, /*#__PURE__*/React.createElement("path", {
-        d: "M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"
-    }))), /*#__PURE__*/React.createElement("h4", null, "Upload Patient Photo"), /*#__PURE__*/React.createElement("p", null, "Drag and drop image here, or browse local device (JPG, PNG)")) : /*#__PURE__*/React.createElement("div", {
-        className: "image-preview-box"
-    }, /*#__PURE__*/React.createElement("canvas", {
-        ref: canvasRef,
-        className: "preview-img",
-        style: {
-            display: assessmentRecord ? "block" : "none"
-        }
-    }), !assessmentRecord && /*#__PURE__*/React.createElement("img", {
-        ref: imageRef,
-        src: imageSrc,
-        className: "preview-img"
-    })), /*#__PURE__*/React.createElement("input", {
-        type: "file",
-        ref: fileInputRef,
-        style: {
-            display: "none"
-        },
-        accept: "image/*",
-        onChange: handleFileChange
-    }), /*#__PURE__*/React.createElement("div", {
-        style: {
-            display: "flex",
-            justifyContent: "space-between"
-        }
+        d: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L1.34 16c-.77 1.333.192 3 1.732 3z"
+    })), /*#__PURE__*/React.createElement("div", {
+        className: "frame-alert-text"
+    }, "Patient Not Detected in Frame"), /*#__PURE__*/React.createElement("p", {
+        style: { color: "#d1d5db", fontSize: 13, textAlign: "center" }
+    }, activeConfig.instructions))), /*#__PURE__*/React.createElement("div", {
+        style: { display: "flex", justifyContent: "space-between" }
     }, /*#__PURE__*/React.createElement("button", {
         className: "btn btn-secondary",
         onClick: onCancel
-    }, "Cancel"), imageSrc && /*#__PURE__*/React.createElement("div", {
-        style: {
-            display: "flex",
-            gap: 10
-        }
-    }, /*#__PURE__*/React.createElement("button", {
-        className: "btn btn-secondary",
-        onClick: () => setImageSrc(null)
-    }, "Change Photo"), !assessmentRecord ? /*#__PURE__*/React.createElement("button", {
+    }, "Cancel"), /*#__PURE__*/React.createElement("button", {
         className: "btn btn-primary",
-        onClick: runPhotoAnalysis,
-        disabled: analyzing
-    }, analyzing ? "Running Landmark Detection..." : "Run Analysis") : /*#__PURE__*/React.createElement("button", {
-        className: "btn btn-primary",
-        onClick: handleProceedToPreview
-    }, "Proceed to Report")))), /*#__PURE__*/React.createElement("div", {
+        onClick: handleCaptureView,
+        disabled: outOfFrame
+    }, viewIndex < BPT2_VIEW_CONFIG.length - 1 ? `Capture & Continue to ${BPT2_VIEW_CONFIG[viewIndex + 1].label}` : "Capture & Finish"))), /*#__PURE__*/React.createElement("div", {
         className: "side-panel"
     }, /*#__PURE__*/React.createElement("div", {
         className: "glass",
-        style: {
-            padding: 20
-        }
+        style: { padding: 20 }
     }, /*#__PURE__*/React.createElement("div", {
         className: "dashboard-card-header"
     }, /*#__PURE__*/React.createElement("h3", null, "Patient: ", assessment.patient.name), /*#__PURE__*/React.createElement("span", {
         className: "badge badge-success",
-        style: {
-            background: "rgba(139, 92, 246, 0.15)",
-            color: "var(--text-purple)"
-        }
-    }, "Module: BPT2")), assessmentRecord ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-        className: "risk-level-banner",
-        style: {
-            background: assessmentRecord.evaluated.overallStatus === "Significant Deviation" ? "var(--danger-bg)" : assessmentRecord.evaluated.overallStatus === "Mild Deviation" ? "var(--warning-bg)" : "var(--success-bg)",
-            color: assessmentRecord.evaluated.overallStatus === "Significant Deviation" ? "var(--danger)" : assessmentRecord.evaluated.overallStatus === "Mild Deviation" ? "var(--warning)" : "var(--success)"
-        }
-    }, "Risk Level: ", assessmentRecord.evaluated.overallStatus), /*#__PURE__*/React.createElement("div", {
-        style: {
-            marginTop: 20
-        }
-    }, /*#__PURE__*/React.createElement("h4", {
-        style: {
-            marginBottom: 12
-        }
-    }, "Detected Angles"), /*#__PURE__*/React.createElement("div", {
-        style: {
-            display: "flex",
-            flexDirection: "column",
-            gap: 8
-        }
-    }, assessmentRecord.evaluated.measurements.map((m, idx) => /*#__PURE__*/React.createElement(AngleRow, {
+        style: { background: "rgba(139, 92, 246, 0.15)", color: "var(--text-purple)" }
+    }, "Module: BPT2")), /*#__PURE__*/React.createElement("p", {
+        style: { color: "var(--text-muted)", fontSize: 13, marginBottom: 12 }
+    }, "Tracking Confidence: ", Math.round(trackingConfidence * 100), "%"), metricEntries.length > 0 ? /*#__PURE__*/React.createElement("div", {
+        style: { display: "flex", flexDirection: "column", gap: 8 }
+    }, metricEntries.map(([key, val]) => /*#__PURE__*/React.createElement(AngleRow, {
+        key: key,
+        label: key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase()),
+        val: val,
+        refRange: "≤ 2°-5°",
+        status: val > 5 ? "Significant Deviation" : val > 2 ? "Mild Deviation" : "Normal"
+    }))) : /*#__PURE__*/React.createElement("p", {
+        style: { color: "var(--text-muted)", textAlign: "center", padding: "20px 0" }
+    }, "Align the patient in frame to begin live tracking."), Object.keys(capturedViews).length > 0 && /*#__PURE__*/React.createElement("div", {
+        className: "view-thumb-strip"
+    }, Object.values(capturedViews).map((v, idx) => /*#__PURE__*/React.createElement("img", {
         key: idx,
-        label: `${m.side} ${m.joint}`,
-        val: m.angle,
-        refRange: m.reference,
-        status: m.status
-    }))))) : /*#__PURE__*/React.createElement("p", {
-        style: {
-            color: "var(--text-muted)",
-            textAlign: "center",
-            padding: "40px 0"
-        }
-    }, "Upload and click Run Analysis to extract angles.")))), step === 3 && reportPreviewData && /*#__PURE__*/React.createElement("div", {
+        src: v.image,
+        title: v.label
+    })))))), step === 3 && reportPreviewData && /*#__PURE__*/React.createElement("div", {
         className: "animate-fade-in",
-        style: {
-            display: "flex",
-            flexDirection: "column",
-            gap: 24
-        }
+        style: { display: "flex", flexDirection: "column", gap: 24 }
     }, /*#__PURE__*/React.createElement("div", {
-        style: {
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center"
-        }
+        style: { display: "flex", justifyContent: "space-between", alignItems: "center" }
     }, /*#__PURE__*/React.createElement("h3", null, "Report Preview"), /*#__PURE__*/React.createElement("div", {
-        style: {
-            display: "flex",
-            gap: 12
-        }
+        style: { display: "flex", gap: 12 }
     }, /*#__PURE__*/React.createElement("button", {
         className: "btn btn-secondary",
-        onClick: () => setStep(2)
-    }, "Back to Edit"), /*#__PURE__*/React.createElement("button", {
+        onClick: handleRestartCapture
+    }, "Retake All Views"), /*#__PURE__*/React.createElement("button", {
         className: "btn btn-primary",
         onClick: () => window.PF_Reports.downloadClientPDF(reportPreviewData)
     }, "Export PDF Report"), /*#__PURE__*/React.createElement("button", {
         className: "btn btn-primary",
-        style: {
-            background: "var(--success)"
-        },
+        style: { background: "var(--success)" },
         onClick: handleFinalSave,
         disabled: saving
     }, saving ? "Saving..." : "Save Assessment to DB"))), /*#__PURE__*/React.createElement(ReportCanvasPreview, {
         reportData: reportPreviewData
     })));
 }
+// Draws simplified reference points/lines relevant to the currently active BPT2 view
+function drawBPT2ViewOverlay(ctx, viewKey, points) {
+    if (!points) return;
+    const mx = p => 640 - p.x * 640;
+    const my = p => p.y * 480;
+    const dot = (p, color) => {
+        if (!p) return;
+        ctx.beginPath();
+        ctx.arc(mx(p), my(p), 7, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    };
+    const line = (p1, p2, color) => {
+        if (!p1 || !p2) return;
+        ctx.beginPath();
+        ctx.moveTo(mx(p1), my(p1));
+        ctx.lineTo(mx(p2), my(p2));
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+    };
+
+    if (viewKey === "anterior") {
+        line(points.acromionL, points.acromionR, "rgba(99,102,241,0.9)");
+        line(points.asisL, points.asisR, "rgba(236,72,153,0.9)");
+        line(points.kneeL, points.kneeR, "rgba(16,185,129,0.9)");
+        dot(points.acromionL, "white"); dot(points.acromionR, "white");
+        dot(points.asisL, "white"); dot(points.asisR, "white");
+        dot(points.kneeL, "white"); dot(points.kneeR, "white");
+        dot(points.sternum, "#fbbf24"); dot(points.umbilicus, "#fbbf24"); dot(points.patellaeCenter, "#fbbf24");
+    } else if (viewKey === "posterior") {
+        line(points.acromionL, points.acromionR, "rgba(99,102,241,0.9)");
+        line(points.psisL, points.psisR, "rgba(236,72,153,0.9)");
+        line(points.kneeL, points.kneeR, "rgba(16,185,129,0.9)");
+        dot(points.acromionL, "white"); dot(points.acromionR, "white");
+        dot(points.psisL, "white"); dot(points.psisR, "white");
+        dot(points.kneeL, "white"); dot(points.kneeR, "white");
+        dot(points.c7, "#fbbf24");
+        dot(points.scapulaInferiorL, "#60a5fa"); dot(points.scapulaInferiorR, "#60a5fa");
+    } else if (viewKey === "rightLateral" || viewKey === "leftLateral") {
+        const p2 = points.condyle || points.epicondyle;
+        line(points.acromion, points.trochanter, "rgba(99,102,241,0.9)");
+        line(points.trochanter, p2, "rgba(16,185,129,0.9)");
+        dot(points.acromion, "white"); dot(points.trochanter, "white"); dot(p2, "white");
+    }
+}
 // Reports View (List past reports and click preview)
+// Maps a stored history/log record into the shape PF_Reports.downloadClientPDF expects
+function buildReportDataFromLog(log) {
+    return {
+        patient: {
+            patient_id: log.patient_id,
+            name: log.patient_name,
+            age: log.patient_age,
+            gender: log.patient_gender,
+            assessor: log.assessor_name,
+            session_type: log.session_type
+        },
+        session: {
+            date: log.date,
+            module: log.module_type,
+            risk_level: log.risk_level,
+            notes: log.session_notes
+        },
+        measurements: log.measurements,
+        interpretation: log.interpretation,
+        recommendations: log.recommendations
+    };
+}
 function ReportsView({
     history,
     activeReportPreview,
     setActiveReportPreview,
     onClosePreview
 }) {
+    const handleArchiveDownload = log => {
+        // Open the preview AND immediately download the PDF from a single click
+        setActiveReportPreview(log);
+        window.PF_Reports.downloadClientPDF(buildReportDataFromLog(log));
+    };
     return /*#__PURE__*/React.createElement("div", {
         className: "animate-fade-in"
     }, !activeReportPreview ? /*#__PURE__*/React.createElement("div", {
@@ -1552,7 +1600,7 @@ function ReportsView({
             padding: "6px 12px",
             fontSize: 12
         },
-        onClick: () => setActiveReportPreview(log)
+        onClick: () => handleArchiveDownload(log)
     }, "View & Download")))))))) : /*#__PURE__*/React.createElement("div", {
         className: "animate-fade-in",
         style: {
@@ -1571,45 +1619,9 @@ function ReportsView({
         onClick: onClosePreview
     }, "Back to Archive"), /*#__PURE__*/React.createElement("button", {
         className: "btn btn-primary",
-        onClick: () => window.PF_Reports.downloadClientPDF({
-            patient: {
-                name: activeReportPreview.patient_name,
-                patient_id: activeReportPreview.patient_id,
-                age: activeReportPreview.patient_age,
-                gender: activeReportPreview.patient_gender,
-                assessor: activeReportPreview.assessor_name,
-                session_type: activeReportPreview.session_type
-            },
-            session: {
-                date: activeReportPreview.date,
-                module: activeReportPreview.module_type,
-                risk_level: activeReportPreview.risk_level,
-                notes: activeReportPreview.session_notes
-            },
-            measurements: activeReportPreview.measurements,
-            interpretation: activeReportPreview.interpretation,
-            recommendations: activeReportPreview.recommendations
-        })
+        onClick: () => window.PF_Reports.downloadClientPDF(buildReportDataFromLog(activeReportPreview))
     }, "Download PDF")), /*#__PURE__*/React.createElement(ReportCanvasPreview, {
-        reportData: {
-            patient: {
-                patient_id: activeReportPreview.patient_id,
-                name: activeReportPreview.patient_name,
-                age: activeReportPreview.patient_age,
-                gender: activeReportPreview.patient_gender,
-                assessor: activeReportPreview.assessor_name,
-                session_type: activeReportPreview.session_type
-            },
-            session: {
-                date: activeReportPreview.date,
-                module: activeReportPreview.module_type,
-                risk_level: activeReportPreview.risk_level,
-                notes: activeReportPreview.session_notes
-            },
-            measurements: activeReportPreview.measurements,
-            interpretation: activeReportPreview.interpretation,
-            recommendations: activeReportPreview.recommendations
-        }
+        reportData: buildReportDataFromLog(activeReportPreview)
     })));
 }
 // Settings View (Local Data Management, No Backend/Supabase)
@@ -1760,7 +1772,7 @@ function ReportCanvasPreview({
         className: "report-logo"
     }, "PostureFlex"), /*#__PURE__*/React.createElement("div", {
         className: "report-type"
-    }, /*#__PURE__*/React.createElement("div", null, "CLINICAL SQUAT ASSESSMENT REPORT"), /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("div", null, session.module === "BPT2" ? "CLINICAL POSTURE SCREENING REPORT" : "CLINICAL SQUAT ASSESSMENT REPORT"), /*#__PURE__*/React.createElement("div", {
         style: {
             fontSize: 9,
             fontWeight: 500,
@@ -1818,7 +1830,16 @@ function ReportCanvasPreview({
         style: {
             fontWeight: 700
         }
-    }, session.risk_level || "Normal")))), reportData.image_base64 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    }, session.risk_level || "Normal")))), reportData.images && reportData.images.length > 0 ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+        className: "report-section-title"
+    }, "Visual Analysis Captures (4-View Posture Screening)"), /*#__PURE__*/React.createElement("div", {
+        className: "report-image-grid"
+    }, reportData.images.map((img, idx) => /*#__PURE__*/React.createElement("div", {
+        key: idx,
+        className: "report-image-grid-item"
+    }, /*#__PURE__*/React.createElement("img", {
+        src: img.base64
+    }), /*#__PURE__*/React.createElement("span", null, img.label))))) : reportData.image_base64 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
         className: "report-section-title"
     }, "Visual Landmark Frame"), /*#__PURE__*/React.createElement("div", {
         className: "report-image-container"
