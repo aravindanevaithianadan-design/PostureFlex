@@ -1,4 +1,4 @@
-/* PostureFlex Main React Application Engine */
+/* PostureFlex Main React Application */
 const {
     useState,
     useEffect,
