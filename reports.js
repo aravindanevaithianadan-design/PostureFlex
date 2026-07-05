@@ -1,13 +1,15 @@
+/* PostureFlex Client-Side PDF Report Generator */
 (function () {
 
     // Generates and downloads PDF directly in the browser
     async function downloadClientPDF(data) {
-        const { jsPDF } = window.jspdf;
-        if (!jsPDF) {
-            console.error("jsPDF library not loaded.");
-            alert("Error: PDF library not available.");
+        const jspdfLib = window.jspdf;
+        if (!jspdfLib || !jspdfLib.jsPDF) {
+            console.error("jsPDF library failed to load (check internet connection / CDN access).");
+            alert("Could not generate PDF: the jsPDF library failed to load. Please check your internet connection and try again.");
             return;
         }
+        const { jsPDF } = jspdfLib;
 
         // Create document (Letter size, units: pt)
         const doc = new jsPDF({
@@ -16,6 +18,22 @@
             format: 'letter'
         });
 
+        if (typeof doc.autoTable !== "function") {
+            console.error("jsPDF-AutoTable plugin failed to load (check internet connection / CDN access).");
+            alert("Could not generate PDF: the table plugin failed to load. Please check your internet connection and try again.");
+            return;
+        }
+
+        try {
+            await buildReportPdf(doc, data);
+        } catch (err) {
+            console.error("PDF generation failed:", err);
+            alert("Something went wrong while generating the PDF. Check the browser console for details.");
+        }
+    }
+
+    // Builds the actual PDF content (separated so the outer function can catch any failures)
+    async function buildReportPdf(doc, data) {
         const patient = data.patient || {};
         const session = data.session || {};
         const measurements = data.measurements || [];
