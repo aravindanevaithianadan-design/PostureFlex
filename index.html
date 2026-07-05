@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PostureFlex - Clinical Posture & Squat Assessment</title>
+
+    <!-- Custom Style (relative path so it works when opened directly as a file) -->
+    <link rel="stylesheet" href="index.css">
+
+    <!-- jsPDF and AutoTable Libraries (client-side PDF generation, no backend needed) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+    <!-- MediaPipe dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
+    <!-- React and ReactDOM CDN (production builds) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+</head>
+
+<body>
+    <div id="root">
+        <div class="loader-container" style="min-height: 100vh; background-color: #07050f;">
+            <div class="spinner"></div>
+            <p style="color: #9ca3af; font-family: sans-serif; font-size: 14px;">Initializing PostureFlex Platform...
+            </p>
+        </div>
+    </div>
+    <!-- Load App Modules (relative paths, plain scripts, no build step or server needed) -->
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="pose.js"></script>
+    <script src="reports.js"></script>
+
+    <!-- Main React Application, pre-compiled from JSX to plain JS so it runs directly via file:// -->
+    <script src="app.js"></script>
+</body>
+
+</html>
