@@ -28,6 +28,7 @@ function App() {
         deviations: 0
     });
     const [activeReportPreview, setActiveReportPreview] = useState(null);
+    const [sidebarOpen, setSidebarOpen] = useState(false); // mobile off-canvas sidebar toggle
     // Initial load
     useEffect(() => {
         const authenticated = window.PF_Auth.isAuthenticated();
@@ -100,23 +101,26 @@ function App() {
     };
     // Render appropriate pages based on route
     return /*#__PURE__*/React.createElement("div", {
-        className: "app-container"
+        className: `app-container ${currentRoute === "login" ? "no-sidebar" : ""}`
     }, currentRoute !== "login" && /*#__PURE__*/React.createElement(Sidebar, {
         currentRoute: currentRoute,
+        isOpen: sidebarOpen,
         onNavigate: route => {
             // Clean up camera if moving away from bpt1
             setCurrentRoute(route);
+            setSidebarOpen(false); // auto-close on mobile after navigating
         },
         onLogout: handleLogout
+    }), currentRoute !== "login" && sidebarOpen && /*#__PURE__*/React.createElement("div", {
+        className: "sidebar-overlay",
+        onClick: () => setSidebarOpen(false)
     }), /*#__PURE__*/React.createElement("div", {
-        className: "main-content",
-        style: {
-            marginLeft: currentRoute === "login" ? "0" : "260px"
-        }
+        className: "main-content"
     }, currentRoute !== "login" && /*#__PURE__*/React.createElement(TopHeader, {
         user: userSession,
         dbState: dbState,
-        onSettings: () => setCurrentRoute("settings")
+        onSettings: () => setCurrentRoute("settings"),
+        onMenuToggle: () => setSidebarOpen(prev => !prev)
     }), currentRoute === "login" && /*#__PURE__*/React.createElement(LoginPage, {
         onLoginSuccess: handleLoginSuccess
     }), currentRoute === "dashboard" && /*#__PURE__*/React.createElement(DashboardView, {
@@ -181,10 +185,11 @@ function App() {
 function Sidebar({
     currentRoute,
     onNavigate,
-    onLogout
+    onLogout,
+    isOpen
 }) {
     return /*#__PURE__*/React.createElement("aside", {
-        className: "sidebar"
+        className: `sidebar ${isOpen ? "sidebar-open" : ""}`
     }, /*#__PURE__*/React.createElement("div", {
         className: "sidebar-logo"
     }, /*#__PURE__*/React.createElement("div", {
@@ -298,13 +303,27 @@ function Sidebar({
 function TopHeader({
     user,
     dbState,
-    onSettings
+    onSettings,
+    onMenuToggle
 }) {
     return /*#__PURE__*/React.createElement("header", {
         className: "top-header"
     }, /*#__PURE__*/React.createElement("div", {
         className: "header-title"
-    }, /*#__PURE__*/React.createElement("h1", null, "PostureFlex"), /*#__PURE__*/React.createElement("p", null, "Clinical Biomechanical Assessment Station")), /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("button", {
+        className: "hamburger-btn",
+        onClick: onMenuToggle,
+        "aria-label": "Toggle menu"
+    }, /*#__PURE__*/React.createElement("svg", {
+        fill: "none",
+        viewBox: "0 0 24 24",
+        stroke: "currentColor",
+        strokeWidth: "2"
+    }, /*#__PURE__*/React.createElement("path", {
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        d: "M4 6h16M4 12h16M4 18h16"
+    }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", null, "PostureFlex"), /*#__PURE__*/React.createElement("p", null, "Clinical Biomechanical Assessment Station"))), /*#__PURE__*/React.createElement("div", {
         className: "header-actions"
     }, /*#__PURE__*/React.createElement("div", {
         className: "mode-banner demo-mode",
