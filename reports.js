@@ -87,6 +87,7 @@
         const session = data.session || {};
         const measurements = data.measurements || [];
         const imageBase64 = data.image_base64;
+        const images = data.images || null; // [{label, base64}, ...] for multi-view reports (BPT2)
         const interpretation = data.interpretation || "";
         const recommendations = data.recommendations || [];
 
@@ -180,8 +181,37 @@
 
         currentY += 105;
 
-        // 3. Visual Capture Image (If available)
-        if (imageBase64) {
+        // 3. Visual Capture Image(s) (If available)
+        if (images && images.length > 0) {
+            try {
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(11);
+                doc.setTextColor(79, 70, 229);
+                doc.text("Visual Analysis Captures (4-View Posture Screening)", MARGIN, currentY);
+                currentY += 10;
+
+                const gap = 12;
+                const cellW = (CONTENT_W - gap) / 2;
+                const cellH = 150;
+                images.slice(0, 4).forEach((img, idx) => {
+                    const col = idx % 2;
+                    const row = Math.floor(idx / 2);
+                    const x = MARGIN + col * (cellW + gap);
+                    const y = currentY + row * (cellH + 24);
+                    if (img.base64) {
+                        doc.addImage(img.base64, 'PNG', x, y, cellW, cellH);
+                    }
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(8.5);
+                    doc.setTextColor(75, 85, 99);
+                    doc.text(img.label || `View ${idx + 1}`, x + cellW / 2, y + cellH + 12, { align: "center" });
+                });
+                const rows = Math.ceil(Math.min(images.length, 4) / 2);
+                currentY += rows * (cellH + 24) + 6;
+            } catch (e) {
+                console.error("Error adding images to jsPDF:", e);
+            }
+        } else if (imageBase64) {
             try {
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(11);
@@ -200,6 +230,10 @@
         }
 
         // 4. Biomechanical Measurements Table
+        if (currentY > PAGE_H - 150) {
+            doc.addPage();
+            currentY = 40;
+        }
         doc.setFont("helvetica", "bold");
         doc.setFontSize(11);
         doc.setTextColor(79, 70, 229);
