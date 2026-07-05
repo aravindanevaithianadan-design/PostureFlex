@@ -1,4 +1,3 @@
-/* PostureFlex Client-Side PDF Report Generator */
 (function () {
 
     // Generates and downloads PDF directly in the browser
