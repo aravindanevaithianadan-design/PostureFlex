@@ -987,6 +987,72 @@ h6 {
     border-radius: 6px;
 }
 
+.report-image-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+}
+
+.report-image-grid-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.report-image-grid-item img {
+    width: 100%;
+    max-height: 220px;
+    object-fit: cover;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+}
+
+.report-image-grid-item span {
+    font-size: 12px;
+    font-weight: 600;
+    color: #4b5563;
+}
+
+.view-progress-dots {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.view-progress-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    transition: background 0.2s ease;
+}
+
+.view-progress-dot.done {
+    background: var(--success, #10b981);
+}
+
+.view-progress-dot.active {
+    background: var(--text-purple, #8b5cf6);
+    transform: scale(1.2);
+}
+
+.view-thumb-strip {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
+.view-thumb-strip img {
+    width: 64px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
 .report-table {
     width: 100%;
     border-collapse: collapse;
