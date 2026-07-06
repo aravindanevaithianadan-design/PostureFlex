@@ -708,8 +708,12 @@ h6 {
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+.video-element.mirrored,
+.canvas-element.mirrored {
     transform: scaleX(-1);
-    /* mirror effect */
+    /* mirror effect: only applied when the front/selfie camera is active */
 }
 
 .canvas-element {
@@ -718,8 +722,6 @@ h6 {
     left: 0;
     width: 100%;
     height: 100%;
-    transform: scaleX(-1);
-    /* mirror matching video */
 }
 
 .camera-controls {
