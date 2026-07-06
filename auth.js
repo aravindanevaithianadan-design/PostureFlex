@@ -34,7 +34,7 @@
                 return { success: true };
             }
 
-            return { success: false, message: "Invalid credentials. Use default User ID: postureflex / pwd: bptpf01" };
+            return { success: false, message: "Invalid credentials. Enter valid username & password" };
         },
 
         logout: function () {
