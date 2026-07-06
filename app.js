@@ -189,22 +189,10 @@ function Sidebar({
         className: "sidebar-logo"
     }, /*#__PURE__*/React.createElement("div", {
         className: "logo-icon"
-    }, /*#__PURE__*/React.createElement("svg", {
-        viewBox: "0 0 24 24",
-        fill: "none",
-        strokeWidth: "2.5",
-        strokeLinecap: "round",
-        strokeLinejoin: "round"
-    }, /*#__PURE__*/React.createElement("path", {
-        d: "M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"
-    }), /*#__PURE__*/React.createElement("path", {
-        d: "M6 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"
-    }), /*#__PURE__*/React.createElement("line", {
-        x1: "9",
-        y1: "12",
-        x2: "15",
-        y2: "12"
-    }))), /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("img", {
+        src: "ps.jpeg",
+        alt: "PostureFlex logo"
+    })), /*#__PURE__*/React.createElement("div", {
         className: "logo-text"
     }, "PostureFlex")), /*#__PURE__*/React.createElement("ul", {
         className: "sidebar-menu"
@@ -304,7 +292,11 @@ function TopHeader({
         className: "top-header"
     }, /*#__PURE__*/React.createElement("div", {
         className: "header-title"
-    }, /*#__PURE__*/React.createElement("h1", null, "PostureFlex"), /*#__PURE__*/React.createElement("p", null, "Clinical Biomechanical Assessment Station")), /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("img", {
+        src: "SMVEC.png",
+        alt: "Sri Manakula Vinayagar Engineering College logo",
+        className: "header-logo"
+    }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", null, "Sri Manakula Vinayagar Engineering College"), /*#__PURE__*/React.createElement("p", null, "School of Physiotherapy"))), /*#__PURE__*/React.createElement("div", {
         className: "header-actions"
     }, /*#__PURE__*/React.createElement("div", {
         className: "mode-banner demo-mode",
@@ -363,22 +355,10 @@ function LoginPage({
         className: "login-header"
     }, /*#__PURE__*/React.createElement("div", {
         className: "login-logo"
-    }, /*#__PURE__*/React.createElement("svg", {
-        viewBox: "0 0 24 24",
-        fill: "none",
-        strokeWidth: "2.5",
-        strokeLinecap: "round",
-        strokeLinejoin: "round"
-    }, /*#__PURE__*/React.createElement("path", {
-        d: "M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"
-    }), /*#__PURE__*/React.createElement("path", {
-        d: "M6 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"
-    }), /*#__PURE__*/React.createElement("line", {
-        x1: "9",
-        y1: "12",
-        x2: "15",
-        y2: "12"
-    }))), /*#__PURE__*/React.createElement("h2", null, "PostureFlex"), /*#__PURE__*/React.createElement("p", null, "Clinical posture analysis & motion capture tool")), errorMsg && /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("img", {
+        src: "ps.jpeg",
+        alt: "PostureFlex logo"
+    })), /*#__PURE__*/React.createElement("h2", null, "PostureFlex"), /*#__PURE__*/React.createElement("p", null, "Clinical posture analysis & motion capture tool")), errorMsg && /*#__PURE__*/React.createElement("div", {
         style: {
             color: "var(--danger)",
             padding: 12,
@@ -396,7 +376,6 @@ function LoginPage({
     }, /*#__PURE__*/React.createElement("label", null, "User ID"), /*#__PURE__*/React.createElement("input", {
         type: "text",
         className: "form-control",
-        value: username,
         onChange: e => setUsername(e.target.value),
         required: true,
         placeholder: "Enter User ID"
@@ -405,8 +384,7 @@ function LoginPage({
     }, /*#__PURE__*/React.createElement("label", null, "Password"), /*#__PURE__*/React.createElement("input", {
         type: "password",
         className: "form-control",
-        value: password,
-        onChange: e => setPassword(e.target.value),
+                onChange: e => setPassword(e.target.value),
         required: true,
         placeholder: "Enter Password"
     })), /*#__PURE__*/React.createElement("button", {
