@@ -376,7 +376,6 @@ function LoginPage({
     }, /*#__PURE__*/React.createElement("label", null, "User ID"), /*#__PURE__*/React.createElement("input", {
         type: "text",
         className: "form-control",
-        value: username,
         onChange: e => setUsername(e.target.value),
         required: true,
         placeholder: "Enter User ID"
@@ -385,7 +384,6 @@ function LoginPage({
     }, /*#__PURE__*/React.createElement("label", null, "Password"), /*#__PURE__*/React.createElement("input", {
         type: "password",
         className: "form-control",
-        value: password,
         onChange: e => setPassword(e.target.value),
         required: true,
         placeholder: "Enter Password"
