@@ -28,6 +28,70 @@ function App() {
         deviations: 0
     });
     const [activeReportPreview, setActiveReportPreview] = useState(null);
+
+    // Mobile sidebar toggle state
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+    // Inject responsive CSS for the mobile sidebar (keeps existing desktop CSS untouched)
+    useEffect(() => {
+        if (document.getElementById('pf-mobile-sidebar-styles')) return;
+        const styleTag = document.createElement('style');
+        styleTag.id = 'pf-mobile-sidebar-styles';
+        styleTag.innerHTML = `
+            .mobile-menu-toggle {
+                display: none;
+                align-items: center;
+                justify-content: center;
+                width: 40px;
+                height: 40px;
+                min-width: 40px;
+                border-radius: 8px;
+                border: 1px solid var(--border-color, #333);
+                background: transparent;
+                color: inherit;
+                cursor: pointer;
+                margin-right: 12px;
+                padding: 0;
+            }
+            .mobile-menu-toggle svg {
+                width: 22px;
+                height: 22px;
+            }
+            .sidebar-overlay {
+                display: none;
+            }
+            @media (max-width: 900px) {
+                .app-container .sidebar {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    height: 100vh;
+                    z-index: 1000;
+                    transform: translateX(-100%);
+                    transition: transform 0.25s ease;
+                    box-shadow: 2px 0 16px rgba(0,0,0,0.4);
+                }
+                .app-container .sidebar.sidebar-open {
+                    transform: translateX(0);
+                }
+                .app-container .main-content {
+                    margin-left: 0 !important;
+                }
+                .mobile-menu-toggle {
+                    display: inline-flex;
+                }
+                .sidebar-overlay.sidebar-overlay-visible {
+                    display: block;
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(0,0,0,0.5);
+                    z-index: 999;
+                }
+            }
+        `;
+        document.head.appendChild(styleTag);
+    }, []);
+
     // Initial load
     useEffect(() => {
         const authenticated = window.PF_Auth.isAuthenticated();
@@ -103,11 +167,16 @@ function App() {
         className: "app-container"
     }, currentRoute !== "login" && /*#__PURE__*/React.createElement(Sidebar, {
         currentRoute: currentRoute,
+        isMobileOpen: mobileSidebarOpen,
         onNavigate: route => {
             // Clean up camera if moving away from bpt1
             setCurrentRoute(route);
+            setMobileSidebarOpen(false);
         },
         onLogout: handleLogout
+    }), currentRoute !== "login" && mobileSidebarOpen && /*#__PURE__*/React.createElement("div", {
+        className: "sidebar-overlay sidebar-overlay-visible",
+        onClick: () => setMobileSidebarOpen(false)
     }), /*#__PURE__*/React.createElement("div", {
         className: "main-content",
         style: {
@@ -116,7 +185,8 @@ function App() {
     }, currentRoute !== "login" && /*#__PURE__*/React.createElement(TopHeader, {
         user: userSession,
         dbState: dbState,
-        onSettings: () => setCurrentRoute("settings")
+        onSettings: () => setCurrentRoute("settings"),
+        onToggleSidebar: () => setMobileSidebarOpen(prev => !prev)
     }), currentRoute === "login" && /*#__PURE__*/React.createElement(LoginPage, {
         onLoginSuccess: handleLoginSuccess
     }), currentRoute === "dashboard" && /*#__PURE__*/React.createElement(DashboardView, {
@@ -181,10 +251,11 @@ function App() {
 function Sidebar({
     currentRoute,
     onNavigate,
-    onLogout
+    onLogout,
+    isMobileOpen
 }) {
     return /*#__PURE__*/React.createElement("aside", {
-        className: "sidebar"
+        className: `sidebar${isMobileOpen ? " sidebar-open" : ""}`
     }, /*#__PURE__*/React.createElement("div", {
         className: "sidebar-logo"
     }, /*#__PURE__*/React.createElement("div", {
@@ -286,13 +357,28 @@ function Sidebar({
 function TopHeader({
     user,
     dbState,
-    onSettings
+    onSettings,
+    onToggleSidebar
 }) {
     return /*#__PURE__*/React.createElement("header", {
         className: "top-header"
     }, /*#__PURE__*/React.createElement("div", {
         className: "header-title"
-    }, /*#__PURE__*/React.createElement("img", {
+    }, /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        className: "mobile-menu-toggle",
+        "aria-label": "Toggle navigation menu",
+        onClick: onToggleSidebar
+    }, /*#__PURE__*/React.createElement("svg", {
+        fill: "none",
+        viewBox: "0 0 24 24",
+        stroke: "currentColor",
+        strokeWidth: "2"
+    }, /*#__PURE__*/React.createElement("path", {
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        d: "M4 6h16M4 12h16M4 18h16"
+    }))), /*#__PURE__*/React.createElement("img", {
         src: "https://github.com/aravindanevaithianadan-design/PostureFlex/blob/main/SMVEC.png?raw=true",
         alt: "Sri Manakula Vinayagar Engineering College logo",
         className: "header-logo"
