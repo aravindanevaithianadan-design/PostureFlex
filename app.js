@@ -113,6 +113,10 @@ function App() {
             setCurrentRoute(route);
             setMobileSidebarOpen(false);
         },
+        onStartModule: moduleName => {
+            handleStartAssessment(moduleName);
+            setMobileSidebarOpen(false);
+        },
         onLogout: handleLogout
     }), currentRoute !== "login" && mobileSidebarOpen && /*#__PURE__*/React.createElement("div", {
         className: "sidebar-overlay",
@@ -192,7 +196,8 @@ function Sidebar({
     currentRoute,
     onNavigate,
     onLogout,
-    isMobileOpen
+    isMobileOpen,
+    onStartModule
 }) {
     return /*#__PURE__*/React.createElement("aside", {
         className: "sidebar" + (isMobileOpen ? " sidebar-open" : "")
@@ -221,7 +226,7 @@ function Sidebar({
         d: "M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z"
     })), "Dashboard"), /*#__PURE__*/React.createElement("li", {
         className: `menu-item ${currentRoute === "bpt1" ? "active" : ""}`,
-        onClick: () => onNavigate("dashboard") /* Forces select intake form via dashboard button */
+        onClick: () => onStartModule("bpt1")
     }, /*#__PURE__*/React.createElement("svg", {
         fill: "none",
         viewBox: "0 0 24 24",
@@ -233,7 +238,7 @@ function Sidebar({
         d: "M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
     })), "BPT1 (Live Camera)"), /*#__PURE__*/React.createElement("li", {
         className: `menu-item ${currentRoute === "bpt2" ? "active" : ""}`,
-        onClick: () => onNavigate("dashboard")
+        onClick: () => onStartModule("bpt2")
     }, /*#__PURE__*/React.createElement("svg", {
         fill: "none",
         viewBox: "0 0 24 24",
