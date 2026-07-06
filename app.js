@@ -29,68 +29,8 @@ function App() {
     });
     const [activeReportPreview, setActiveReportPreview] = useState(null);
 
-    // Mobile sidebar toggle state
+    // Mobile off-canvas sidebar toggle state
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-
-    // Inject responsive CSS for the mobile sidebar (keeps existing desktop CSS untouched)
-    useEffect(() => {
-        if (document.getElementById('pf-mobile-sidebar-styles')) return;
-        const styleTag = document.createElement('style');
-        styleTag.id = 'pf-mobile-sidebar-styles';
-        styleTag.innerHTML = `
-            .mobile-menu-toggle {
-                display: none;
-                align-items: center;
-                justify-content: center;
-                width: 40px;
-                height: 40px;
-                min-width: 40px;
-                border-radius: 8px;
-                border: 1px solid var(--border-color, #333);
-                background: transparent;
-                color: inherit;
-                cursor: pointer;
-                margin-right: 12px;
-                padding: 0;
-            }
-            .mobile-menu-toggle svg {
-                width: 22px;
-                height: 22px;
-            }
-            .sidebar-overlay {
-                display: none;
-            }
-            @media (max-width: 900px) {
-                .app-container .sidebar {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    height: 100vh;
-                    z-index: 1000;
-                    transform: translateX(-100%);
-                    transition: transform 0.25s ease;
-                    box-shadow: 2px 0 16px rgba(0,0,0,0.4);
-                }
-                .app-container .sidebar.sidebar-open {
-                    transform: translateX(0);
-                }
-                .app-container .main-content {
-                    margin-left: 0 !important;
-                }
-                .mobile-menu-toggle {
-                    display: inline-flex;
-                }
-                .sidebar-overlay.sidebar-overlay-visible {
-                    display: block;
-                    position: fixed;
-                    inset: 0;
-                    background: rgba(0,0,0,0.5);
-                    z-index: 999;
-                }
-            }
-        `;
-        document.head.appendChild(styleTag);
-    }, []);
 
     // Initial load
     useEffect(() => {
@@ -175,7 +115,7 @@ function App() {
         },
         onLogout: handleLogout
     }), currentRoute !== "login" && mobileSidebarOpen && /*#__PURE__*/React.createElement("div", {
-        className: "sidebar-overlay sidebar-overlay-visible",
+        className: "sidebar-overlay",
         onClick: () => setMobileSidebarOpen(false)
     }), /*#__PURE__*/React.createElement("div", {
         className: "main-content",
@@ -255,7 +195,7 @@ function Sidebar({
     isMobileOpen
 }) {
     return /*#__PURE__*/React.createElement("aside", {
-        className: `sidebar${isMobileOpen ? " sidebar-open" : ""}`
+        className: "sidebar" + (isMobileOpen ? " sidebar-open" : "")
     }, /*#__PURE__*/React.createElement("div", {
         className: "sidebar-logo"
     }, /*#__PURE__*/React.createElement("div", {
@@ -366,7 +306,7 @@ function TopHeader({
         className: "header-title"
     }, /*#__PURE__*/React.createElement("button", {
         type: "button",
-        className: "mobile-menu-toggle",
+        className: "hamburger-btn",
         "aria-label": "Toggle navigation menu",
         onClick: onToggleSidebar
     }, /*#__PURE__*/React.createElement("svg", {
