@@ -293,7 +293,7 @@ function TopHeader({
     }, /*#__PURE__*/React.createElement("div", {
         className: "header-title"
     }, /*#__PURE__*/React.createElement("img", {
-        src: "SMVEC.png",
+        src: "https://github.com/aravindanevaithianadan-design/PostureFlex/blob/main/SMVEC.png?raw=true",
         alt: "Sri Manakula Vinayagar Engineering College logo",
         className: "header-logo"
     }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", null, "Sri Manakula Vinayagar Engineering College"), /*#__PURE__*/React.createElement("p", null, "School of Physiotherapy"))), /*#__PURE__*/React.createElement("div", {
@@ -376,6 +376,7 @@ function LoginPage({
     }, /*#__PURE__*/React.createElement("label", null, "User ID"), /*#__PURE__*/React.createElement("input", {
         type: "text",
         className: "form-control",
+        value: username,
         onChange: e => setUsername(e.target.value),
         required: true,
         placeholder: "Enter User ID"
@@ -384,7 +385,8 @@ function LoginPage({
     }, /*#__PURE__*/React.createElement("label", null, "Password"), /*#__PURE__*/React.createElement("input", {
         type: "password",
         className: "form-control",
-                onChange: e => setPassword(e.target.value),
+        value: password,
+        onChange: e => setPassword(e.target.value),
         required: true,
         placeholder: "Enter Password"
     })), /*#__PURE__*/React.createElement("button", {
