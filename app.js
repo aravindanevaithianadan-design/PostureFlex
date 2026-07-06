@@ -688,6 +688,7 @@ function BPT1Module({
     const [assessmentRecord, setAssessmentRecord] = useState(null);
     const [reportPreviewData, setReportPreviewData] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [isFrontCamera, setIsFrontCamera] = useState(true);
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const poseRef = useRef(null);
@@ -758,9 +759,16 @@ function BPT1Module({
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         width: 640,
-                        height: 480
+                        height: 480,
+                        facingMode: { ideal: "environment" }
                     }
                 });
+                // Determine which physical camera we actually got, so the mirror
+                // effect only applies to front-facing cameras (rear camera feeds
+                // should never be mirrored, especially for clinical L/R accuracy)
+                const [videoTrack] = stream.getVideoTracks();
+                const actualFacingMode = videoTrack && videoTrack.getSettings ? videoTrack.getSettings().facingMode : undefined;
+                setIsFrontCamera(actualFacingMode !== "environment");
                 videoElement.srcObject = stream;
                 videoElement.play();
 
@@ -973,14 +981,14 @@ function BPT1Module({
         className: "camera-panel"
     }, /*#__PURE__*/React.createElement("video", {
         ref: videoRef,
-        className: "video-element",
+        className: "video-element" + (isFrontCamera ? " mirrored" : ""),
         muted: true,
         style: {
             display: "none"
         }
     }), /*#__PURE__*/React.createElement("canvas", {
         ref: canvasRef,
-        className: "canvas-element",
+        className: "canvas-element" + (isFrontCamera ? " mirrored" : ""),
         width: "640",
         height: "480"
     }), outOfFrame && /*#__PURE__*/React.createElement("div", {
@@ -1163,6 +1171,7 @@ function BPT2Module({
     const [capturedViews, setCapturedViews] = useState({});
     const [reportPreviewData, setReportPreviewData] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [isFrontCamera, setIsFrontCamera] = useState(true);
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const poseRef = useRef(null);
@@ -1229,8 +1238,11 @@ function BPT2Module({
 
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: 640, height: 480 }
+                    video: { width: 640, height: 480, facingMode: { ideal: "environment" } }
                 });
+                const [videoTrack] = stream.getVideoTracks();
+                const actualFacingMode = videoTrack && videoTrack.getSettings ? videoTrack.getSettings().facingMode : undefined;
+                setIsFrontCamera(actualFacingMode !== "environment");
                 videoElement.srcObject = stream;
                 videoElement.play();
 
@@ -1402,12 +1414,12 @@ function BPT2Module({
         className: "camera-panel"
     }, /*#__PURE__*/React.createElement("video", {
         ref: videoRef,
-        className: "video-element",
+        className: "video-element" + (isFrontCamera ? " mirrored" : ""),
         muted: true,
         style: { display: "none" }
     }), /*#__PURE__*/React.createElement("canvas", {
         ref: canvasRef,
-        className: "canvas-element",
+        className: "canvas-element" + (isFrontCamera ? " mirrored" : ""),
         width: "640",
         height: "480"
     }), outOfFrame && /*#__PURE__*/React.createElement("div", {
