@@ -3,6 +3,7 @@
     // MediaPipe landmark map
     const LM = {
         NOSE: 0,
+        L_EAR: 7, R_EAR: 8,
         L_SHOULDER: 11, R_SHOULDER: 12,
         L_ELBOW: 13, R_ELBOW: 14,
         L_WRIST: 15, R_WRIST: 16,
@@ -66,7 +67,10 @@
         spinalAlignment: { name: "Spinal Alignment (C7 to PSIS Midpoint)", refRange: "0° - 2°", minNormal: 0, maxNormal: 2, warningThreshold: 5 },
         trunkSagittal: { name: "Trunk-Pelvis Sagittal Alignment (Acromion-Trochanter)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 10 },
         thighSagittal: { name: "Pelvis-Knee Sagittal Alignment (Trochanter-Condyle)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 10 },
-        sagittalCurvature: { name: "Overall Sagittal Curvature", refRange: "0° - 6°", minNormal: 0, maxNormal: 6, warningThreshold: 12 }
+        sagittalCurvature: { name: "Overall Sagittal Curvature", refRange: "0° - 6°", minNormal: 0, maxNormal: 6, warningThreshold: 12 },
+        headPositionTilt: { name: "Head Position (Ear Level L/R)", refRange: "0° - 2°", minNormal: 0, maxNormal: 2, warningThreshold: 5 },
+        headPositionForward: { name: "Head Position (Forward Head Posture)", refRange: "0° - 8°", minNormal: 0, maxNormal: 8, warningThreshold: 15 },
+        scapularSymmetry: { name: "Scapular Symmetry (Inferior Angle L/R)", refRange: "0° - 2°", minNormal: 0, maxNormal: 2, warningThreshold: 5 }
     };
 
     function midpoint(A, B) {
@@ -96,6 +100,16 @@
         const avg = sum / indices.length;
         return { confidence: avg, outOfFrame: (low >= Math.ceil(indices.length / 2) || avg < 0.4) };
     }
+    // Resolves an ear landmark for head-position checks; falls back to the
+    // nose landmark if the ear itself has low tracking confidence (common at
+    // certain camera angles), so the head-position metric degrades gracefully
+    // instead of disappearing entirely.
+    function resolveHeadRefPoint(landmarks, earIdx) {
+        const ear = landmarks[earIdx];
+        if (ear && (ear.visibility === undefined || ear.visibility >= 0.3)) return ear;
+        const nose = landmarks[LM.NOSE];
+        return (nose && (nose.visibility === undefined || nose.visibility >= 0.3)) ? nose : null;
+    }
 
     // Anterior (front-facing) view
     function analyzeAnteriorView(landmarks) {
@@ -105,12 +119,15 @@
         const lShoulder = landmarks[LM.L_SHOULDER], rShoulder = landmarks[LM.R_SHOULDER];
         const lHip = landmarks[LM.L_HIP], rHip = landmarks[LM.R_HIP];
         const lKnee = landmarks[LM.L_KNEE], rKnee = landmarks[LM.R_KNEE];
+        const lEar = landmarks[LM.L_EAR], rEar = landmarks[LM.R_EAR];
+        const earsVisible = (lEar?.visibility || 0) >= 0.3 && (rEar?.visibility || 0) >= 0.3;
 
         return {
             view: "Anterior",
             outOfFrame: false,
             confidence: check.confidence,
             points: {
+                earL: lEar, earR: rEar,
                 acromionL: lShoulder, acromionR: rShoulder,
                 sternum: offsetDown(midpoint(lShoulder, rShoulder), 0.08),
                 umbilicus: midpoint(lHip, rHip),
@@ -119,6 +136,7 @@
                 kneeL: lKnee, kneeR: rKnee
             },
             metrics: {
+                ...(earsVisible ? { headPositionTilt: calculateTiltFromHorizontal(lEar, rEar) } : {}),
                 shoulderTilt: calculateTiltFromHorizontal(lShoulder, rShoulder),
                 pelvicTiltFrontal: calculateTiltFromHorizontal(lHip, rHip),
                 kneeAlignmentFrontal: calculateTiltFromHorizontal(lKnee, rKnee)
@@ -134,28 +152,35 @@
         const lShoulder = landmarks[LM.L_SHOULDER], rShoulder = landmarks[LM.R_SHOULDER];
         const lHip = landmarks[LM.L_HIP], rHip = landmarks[LM.R_HIP];
         const lKnee = landmarks[LM.L_KNEE], rKnee = landmarks[LM.R_KNEE];
+        const lEar = landmarks[LM.L_EAR], rEar = landmarks[LM.R_EAR];
+        const earsVisible = (lEar?.visibility || 0) >= 0.3 && (rEar?.visibility || 0) >= 0.3;
         const shoulderMid = midpoint(lShoulder, rShoulder);
         const hipMid = midpoint(lHip, rHip);
         // C7 spinous process approximated slightly above the shoulder midpoint
         const c7Approx = shoulderMid ? { x: shoulderMid.x, y: shoulderMid.y - 0.03 } : null;
+        const scapulaInferiorL = offsetDown(lShoulder, 0.12); // approximated
+        const scapulaInferiorR = offsetDown(rShoulder, 0.12); // approximated
 
         return {
             view: "Posterior",
             outOfFrame: false,
             confidence: check.confidence,
             points: {
+                earL: lEar, earR: rEar,
                 c7: c7Approx,
-                scapulaInferiorL: offsetDown(lShoulder, 0.12), scapulaInferiorR: offsetDown(rShoulder, 0.12), // approximated
+                scapulaInferiorL, scapulaInferiorR,
                 acromionL: lShoulder, acromionR: rShoulder,
                 psisL: lHip, psisR: rHip,
                 kneeL: lKnee, kneeR: rKnee,
                 kneeMidpoint: midpoint(lKnee, rKnee)
             },
             metrics: {
+                ...(earsVisible ? { headPositionTilt: calculateTiltFromHorizontal(lEar, rEar) } : {}),
                 shoulderTilt: calculateTiltFromHorizontal(lShoulder, rShoulder),
                 pelvicTiltPosterior: calculateTiltFromHorizontal(lHip, rHip),
                 kneeAlignmentPosterior: calculateTiltFromHorizontal(lKnee, rKnee),
-                spinalAlignment: c7Approx ? calculateAngleFromVertical(c7Approx, hipMid) : 0
+                spinalAlignment: c7Approx ? calculateAngleFromVertical(c7Approx, hipMid) : 0,
+                scapularSymmetry: calculateTiltFromHorizontal(scapulaInferiorL, scapulaInferiorR)
             }
         };
     }
@@ -168,6 +193,7 @@
         const acromion = landmarks[LM.R_SHOULDER];
         const trochanter = landmarks[LM.R_HIP]; // greater trochanter approximation
         const condyle = landmarks[LM.R_KNEE]; // lateral femoral condyle approximation
+        const headRef = resolveHeadRefPoint(landmarks, LM.R_EAR); // ear, falls back to nose
 
         const straightLineAngle = calculateAngle(acromion, trochanter, condyle);
 
@@ -175,8 +201,9 @@
             view: "Right Lateral",
             outOfFrame: false,
             confidence: check.confidence,
-            points: { acromion, trochanter, condyle },
+            points: { acromion, trochanter, condyle, headRef },
             metrics: {
+                ...(headRef ? { headPositionForward: calculateAngleFromVertical(headRef, acromion) } : {}),
                 trunkSagittal: calculateAngleFromVertical(acromion, trochanter),
                 thighSagittal: calculateAngleFromVertical(trochanter, condyle),
                 sagittalCurvature: parseFloat(Math.abs(180 - straightLineAngle).toFixed(1))
@@ -192,6 +219,7 @@
         const acromion = landmarks[LM.L_SHOULDER];
         const trochanter = landmarks[LM.L_HIP]; // greater trochanter approximation
         const epicondyle = landmarks[LM.L_KNEE]; // lateral femoral epicondyle approximation
+        const headRef = resolveHeadRefPoint(landmarks, LM.L_EAR); // ear, falls back to nose
 
         const straightLineAngle = calculateAngle(acromion, trochanter, epicondyle);
 
@@ -199,8 +227,9 @@
             view: "Left Lateral",
             outOfFrame: false,
             confidence: check.confidence,
-            points: { acromion, trochanter, epicondyle },
+            points: { acromion, trochanter, epicondyle, headRef },
             metrics: {
+                ...(headRef ? { headPositionForward: calculateAngleFromVertical(headRef, acromion) } : {}),
                 trunkSagittal: calculateAngleFromVertical(acromion, trochanter),
                 thighSagittal: calculateAngleFromVertical(trochanter, epicondyle),
                 sagittalCurvature: parseFloat(Math.abs(180 - straightLineAngle).toFixed(1))
@@ -238,25 +267,30 @@
 
         if (views.anterior && !views.anterior.outOfFrame) {
             const m = views.anterior.metrics;
+            checkOne("Anterior", "headPositionTilt", m.headPositionTilt, "L-R");
             checkOne("Anterior", "shoulderTilt", m.shoulderTilt, "L-R");
             checkOne("Anterior", "pelvicTiltFrontal", m.pelvicTiltFrontal, "L-R");
             checkOne("Anterior", "kneeAlignmentFrontal", m.kneeAlignmentFrontal, "L-R");
         }
         if (views.posterior && !views.posterior.outOfFrame) {
             const m = views.posterior.metrics;
+            checkOne("Posterior", "headPositionTilt", m.headPositionTilt, "L-R");
             checkOne("Posterior", "shoulderTilt", m.shoulderTilt, "L-R");
             checkOne("Posterior", "pelvicTiltPosterior", m.pelvicTiltPosterior, "L-R");
             checkOne("Posterior", "kneeAlignmentPosterior", m.kneeAlignmentPosterior, "L-R");
             checkOne("Posterior", "spinalAlignment", m.spinalAlignment, "Center");
+            checkOne("Posterior", "scapularSymmetry", m.scapularSymmetry, "L-R");
         }
         if (views.rightLateral && !views.rightLateral.outOfFrame) {
             const m = views.rightLateral.metrics;
+            checkOne("Right Lateral", "headPositionForward", m.headPositionForward, "Right");
             checkOne("Right Lateral", "trunkSagittal", m.trunkSagittal, "Right");
             checkOne("Right Lateral", "thighSagittal", m.thighSagittal, "Right");
             checkOne("Right Lateral", "sagittalCurvature", m.sagittalCurvature, "Right");
         }
         if (views.leftLateral && !views.leftLateral.outOfFrame) {
             const m = views.leftLateral.metrics;
+            checkOne("Left Lateral", "headPositionForward", m.headPositionForward, "Left");
             checkOne("Left Lateral", "trunkSagittal", m.trunkSagittal, "Left");
             checkOne("Left Lateral", "thighSagittal", m.thighSagittal, "Left");
             checkOne("Left Lateral", "sagittalCurvature", m.sagittalCurvature, "Left");
@@ -283,9 +317,15 @@
             const pelvicDev = deviations.find(d => d.joint.includes("Pelvic Level"));
             const spinalDev = deviations.find(d => d.joint.includes("Spinal Alignment"));
             const kneeDev = deviations.find(d => d.joint.includes("Knee Alignment"));
-            const sagittalDev = deviations.find(d => d.joint.includes("Sagittal"));
+            const sagittalDev = deviations.find(d => d.joint.includes("Sagittal") && !d.joint.includes("Head Position"));
+            const headTiltDev = deviations.find(d => d.joint.includes("Head Position (Ear Level"));
+            const headForwardDev = deviations.find(d => d.joint.includes("Head Position (Forward Head"));
+            const scapularDev = deviations.find(d => d.joint.includes("Scapular Symmetry"));
 
+            if (headTiltDev) remarks.push(`Lateral head tilt of ${headTiltDev.angle}° was observed between ear reference points, which may indicate cervical muscular imbalance (e.g. unilateral upper trapezius/levator scapulae tightness).`);
+            if (headForwardDev) remarks.push(`Forward head posture of ${headForwardDev.angle}° was measured relative to the shoulder, a common finding associated with prolonged desk/screen posture and upper cervical strain.`);
             if (shoulderDev) remarks.push(`Shoulder height asymmetry (${shoulderDev.angle}°) was observed, which may reflect unilateral muscular tightness (e.g. upper trapezius) or scapular positioning imbalance.`);
+            if (scapularDev) remarks.push(`Scapular asymmetry of ${scapularDev.angle}° was noted between the left and right inferior angles, suggesting possible scapular winging, dyskinesis, or unilateral periscapular weakness.`);
             if (pelvicDev) remarks.push(`Pelvic obliquity (${pelvicDev.angle}°) was detected, suggesting possible leg-length discrepancy, hip abductor weakness, or lateral pelvic tilt.`);
             if (spinalDev) remarks.push(`Lateral spinal deviation of ${spinalDev.angle}° between the cervicothoracic junction and pelvis was noted, warranting screening for scoliosis or postural asymmetry.`);
             if (kneeDev) remarks.push(`Frontal-plane knee alignment deviates by ${kneeDev.angle}°, consistent with possible genu valgum/varum or rotational compensation.`);
@@ -314,8 +354,14 @@
         }
 
         const joints = deviations.map(d => d.joint);
+        if (joints.some(j => j.includes("Head Position (Ear Level") || j.includes("Head Position (Forward Head"))) {
+            recs.push("Cervical postural retraining (chin tucks, deep neck flexor strengthening) and ergonomic screen-height review to correct head tilt/forward head posture.");
+        }
         if (joints.some(j => j.includes("Shoulder Level"))) {
             recs.push("Unilateral scapular stabilization drills (band pull-aparts, wall slides) to correct shoulder height asymmetry.");
+        }
+        if (joints.some(j => j.includes("Scapular Symmetry"))) {
+            recs.push("Periscapular strengthening (serratus anterior punches, rows, wall slides) to address scapular asymmetry/winging.");
         }
         if (joints.some(j => j.includes("Pelvic Level"))) {
             recs.push("Hip abductor/adductor strengthening (side-lying leg raises, clamshells) and assess for leg-length discrepancy.");
