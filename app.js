@@ -324,7 +324,7 @@ function TopHeader({
         strokeLinejoin: "round",
         d: "M4 6h16M4 12h16M4 18h16"
     }))), /*#__PURE__*/React.createElement("img", {
-        src: "https://github.com/aravindanevaithianadan-design/PostureFlex/blob/main/SMVEC.png?raw=true",
+        src: "https://github.com/aravindanevaithianadan-design/PostureFlex/blob/main/IMG_20240503_090818-removebg-preview.png?raw=true",
         alt: "Sri Manakula Vinayagar Engineering College logo",
         className: "header-logo"
     }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", null, "Sri Manakula Vinayagar Engineering College"), /*#__PURE__*/React.createElement("p", null, "School of Physiotherapy"))), /*#__PURE__*/React.createElement("div", {
