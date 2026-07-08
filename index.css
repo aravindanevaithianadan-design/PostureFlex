@@ -349,8 +349,8 @@ h6 {
 }
 
 .header-logo {
-    height: 64px;
-    width: 64px;
+    height: 74px;
+    width: 74px;
     object-fit: contain;
     flex-shrink: 0;
 }
