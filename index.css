@@ -271,7 +271,9 @@ h6 {
     font-size: 22px;
     font-weight: 800;
     background: linear-gradient(to right, #16232a, #1f9a89);
+    background-clip: text;
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     font-family: var(--font-heading);
 }
@@ -955,6 +957,7 @@ h6 {
     font-weight: 900;
     font-family: var(--font-heading);
     background: linear-gradient(to right, #1f9a89, #7c63c9);
+    background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
@@ -1341,6 +1344,432 @@ h6 {
     animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
+/* ===========================================================================
+   UI POLISH LAYER
+   Everything below hooks into class names that already exist in the app —
+   no markup, props, state, or feature logic is touched. Purely visual:
+   micro-interactions, staggered entrances, richer motion for modals/tables/
+   forms, keyboard-accessible focus rings, and extra responsive breakpoints.
+   =========================================================================== */
+
+/* Smooth scrolling + a slimmer, on-brand scrollbar */
+html {
+    scroll-behavior: smooth;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(31, 154, 137, 0.28);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(31, 154, 137, 0.5);
+    background-clip: padding-box;
+}
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(31, 154, 137, 0.28) transparent;
+}
+
+/* Visible, on-brand keyboard focus everywhere, without adding an outline to
+   mouse clicks (":focus-visible" already scopes this correctly) */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.menu-item:focus-visible,
+.btn:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 3px;
+    border-radius: 8px;
+}
+
+/* Sidebar: active item gets a soft sliding indicator + icon nudge on hover */
+.menu-item {
+    position: relative;
+    overflow: hidden;
+}
+
+.menu-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 3px;
+    height: 0;
+    background: linear-gradient(180deg, var(--primary), var(--secondary));
+    border-radius: 0 4px 4px 0;
+    transform: translateY(-50%);
+    transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.menu-item.active::before {
+    height: 60%;
+}
+
+.menu-item svg {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.menu-item:hover svg {
+    transform: scale(1.12) translateX(1px);
+}
+
+.logo-icon {
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-logo:hover .logo-icon {
+    transform: rotate(-6deg) scale(1.06);
+}
+
+/* Buttons: subtle lift + shine sweep on primary actions, gentle press-down
+   on click for tactile feedback */
+.btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%);
+    transform: translateX(-120%);
+    transition: transform 0.6s ease;
+    pointer-events: none;
+}
+
+.btn-primary:hover::after {
+    transform: translateX(120%);
+}
+
+.btn:active {
+    transform: scale(0.97) translateY(0) !important;
+}
+
+.btn-secondary:hover {
+    transform: translateY(-1px);
+}
+
+.btn-icon:hover {
+    transform: translateY(-1px) rotate(-4deg);
+}
+
+/* Cards: lift, glow border, and icon/tag nudge on hover (glass-hover already
+   sets translateY on hover; this adds a matching shadow ramp + inner motion) */
+.stat-card,
+.module-card,
+.hero-card {
+    transition: var(--transition), box-shadow 0.35s ease;
+}
+
+.stat-card:hover .stat-icon {
+    transform: scale(1.08) rotate(-4deg);
+}
+
+.stat-icon {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.module-card:hover {
+    box-shadow: 0 16px 40px 0 rgba(31, 154, 137, 0.18);
+}
+
+.module-card:hover .module-tag {
+    background: rgba(31, 154, 137, 0.22);
+    border-color: rgba(31, 154, 137, 0.4);
+}
+
+.module-tag {
+    transition: var(--transition);
+}
+
+.hero-card::after {
+    animation: heroGlowDrift 12s ease-in-out infinite;
+}
+
+@keyframes heroGlowDrift {
+
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    50% {
+        transform: translate(-30px, 20px) scale(1.12);
+    }
+}
+
+/* Staggered entrance for grid/list children. Applies automatically whenever
+   these grids render — no JS needed since CSS nth-child handles the delay. */
+@keyframes riseIn {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.stats-grid>.stat-card,
+.modules-grid>.module-card {
+    animation: riseIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+}
+
+.stats-grid>.stat-card:nth-child(1),
+.modules-grid>.module-card:nth-child(1) {
+    animation-delay: 0.04s;
+}
+
+.stats-grid>.stat-card:nth-child(2),
+.modules-grid>.module-card:nth-child(2) {
+    animation-delay: 0.11s;
+}
+
+.stats-grid>.stat-card:nth-child(3),
+.modules-grid>.module-card:nth-child(3) {
+    animation-delay: 0.18s;
+}
+
+.stats-grid>.stat-card:nth-child(4) {
+    animation-delay: 0.25s;
+}
+
+.custom-table tbody tr {
+    animation: riseIn 0.35s ease backwards;
+}
+
+.custom-table tbody tr:nth-child(n) {
+    animation-delay: calc(0.03s * var(--row-index, 0));
+}
+
+.custom-table tr {
+    transition: background 0.2s ease;
+}
+
+/* Forms: label rises with the value, input glows more richly on focus */
+.form-control {
+    transition: var(--transition), box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.form-control:focus {
+    transform: translateY(-1px);
+}
+
+.form-group {
+    transition: transform 0.2s ease;
+}
+
+/* Badges: a light pulse on danger/warning so risk states catch the eye
+   without being obnoxious */
+.badge-danger {
+    animation: badgePulse 2.4s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.25);
+    }
+
+    50% {
+        box-shadow: 0 0 0 5px rgba(220, 38, 38, 0);
+    }
+}
+
+/* Modals: backdrop fades, panel scales + rises in — replaces the flatter
+   fade for a more deliberate "arrival" moment */
+@keyframes modalBackdropIn {
+    from {
+        opacity: 0;
+        backdrop-filter: blur(0px);
+    }
+
+    to {
+        opacity: 1;
+        backdrop-filter: blur(8px);
+    }
+}
+
+@keyframes modalContentIn {
+    from {
+        opacity: 0;
+        transform: translateY(18px) scale(0.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modal-overlay {
+    animation: modalBackdropIn 0.25s ease forwards;
+}
+
+.modal-overlay .modal-content {
+    animation: modalContentIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Hamburger icon morphs into a close "X" while the sidebar is open */
+.hamburger-btn svg {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar.sidebar-open~.sidebar-overlay~.main-content .hamburger-btn svg,
+.top-header .hamburger-btn[aria-expanded="true"] svg {
+    transform: rotate(90deg);
+}
+
+.sidebar-overlay {
+    animation: fadeIn 0.25s ease forwards;
+}
+
+/* Score / result readouts get a soft one-time glow so results feel "landed" */
+.score-num {
+    animation: scoreGlow 0.8s ease-out;
+}
+
+@keyframes scoreGlow {
+    0% {
+        text-shadow: 0 0 0 rgba(31, 154, 137, 0);
+        transform: scale(0.9);
+    }
+
+    40% {
+        text-shadow: 0 0 24px var(--primary-glow);
+    }
+
+    100% {
+        text-shadow: 0 0 0 rgba(31, 154, 137, 0);
+        transform: scale(1);
+    }
+}
+
+.angle-row {
+    transition: var(--transition), transform 0.2s ease;
+}
+
+.angle-row:hover {
+    transform: translateX(2px);
+    background: rgba(31, 154, 137, 0.06);
+}
+
+/* Camera panel: a gentle ring pulse so the live-capture surface reads as
+   "active", not just a static rectangle */
+.camera-panel {
+    transition: box-shadow 0.4s ease;
+}
+
+/* Login card entrance: a touch more presence than the generic fade */
+.login-card {
+    animation: modalContentIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.login-logo {
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.login-card:hover .login-logo {
+    transform: rotate(-6deg) scale(1.05);
+}
+
+/* Respect reduced-motion preferences across every animation added above */
+@media (prefers-reduced-motion: reduce) {
+
+    html {
+        scroll-behavior: auto;
+    }
+
+    .stats-grid>.stat-card,
+    .modules-grid>.module-card,
+    .custom-table tbody tr,
+    .badge-danger,
+    .modal-overlay,
+    .modal-overlay .modal-content,
+    .sidebar-overlay,
+    .score-num,
+    .login-card,
+    .hero-card::after {
+        animation: none !important;
+    }
+
+    .btn::after {
+        display: none;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   Extra responsive coverage: ultra-wide desktops and very small phones,
+   filling the gaps around the existing 900px / 600px breakpoints */
+@media (min-width: 1600px) {
+    .main-content {
+        max-width: 1440px;
+        margin-left: 260px;
+        padding-left: 56px;
+        padding-right: 56px;
+    }
+
+    .app-container {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 380px) {
+    .hero-card h2 {
+        font-size: 19px;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .stat-info .num {
+        font-size: 18px;
+    }
+
+    .btn {
+        padding: 10px 14px;
+        font-size: 12.5px;
+    }
+
+    .login-card {
+        padding: 20px 16px;
+    }
+}
+
+/* Orientation: landscape phones need the camera-driven modules to stay
+   reachable without excessive vertical scrolling */
+@media (max-height: 480px) and (orientation: landscape) {
+    .modal-content {
+        max-height: 96vh;
+    }
+
+    .top-header {
+        margin-bottom: 12px;
+    }
+}
+
 /* Warnings and frames */
 .out-of-frame-overlay {
     position: absolute;
@@ -1631,5 +2060,317 @@ h6 {
     .sidebar {
         width: 84%;
         max-width: 300px;
+    }
+}
+
+/* ===========================================================================
+   PREMIUM ENHANCEMENT LAYER
+   A second, more opinionated pass: richer depth, a real signature texture,
+   fluid typography, gradient-edge cards, and small distinguishing details
+   between the two assessment modules. Still zero markup/JS changes — every
+   rule targets classes the app already renders.
+   =========================================================================== */
+
+:root {
+    --shadow-soft: 0 1px 2px rgba(16, 24, 29, 0.04), 0 12px 32px -8px rgba(31, 154, 137, 0.16);
+    --shadow-lifted: 0 4px 10px rgba(16, 24, 29, 0.06), 0 24px 48px -12px rgba(31, 154, 137, 0.24);
+    --edge-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    --grad-brand: linear-gradient(135deg, #1f9a89 0%, #3f6fa8 60%, #7c63c9 100%);
+}
+
+/* Fine grain texture over the whole app for a tactile, premium surface —
+   a single tiny inline SVG, tiled, at very low opacity. Purely decorative,
+   fixed, non-interactive. */
+.app-container {
+    position: relative;
+}
+
+body {
+    background-blend-mode: normal;
+}
+
+#root::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2000;
+    opacity: 0.025;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Fluid, more considered type scale for the biggest headings */
+.hero-card h2 {
+    font-size: clamp(24px, 3.4vw, 34px);
+    background: var(--grad-brand);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradientDrift 8s ease-in-out infinite;
+}
+
+@keyframes gradientDrift {
+
+    0%,
+    100% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+.score-num {
+    background-size: 200% auto;
+    animation: scoreGlow 0.8s ease-out, gradientDrift 6s ease-in-out infinite 0.8s;
+}
+
+/* Gradient-edge "glass" cards: a hairline brand-gradient border plus a soft
+   inner top highlight, replacing the flat single-color border for anything
+   elevated. Falls back gracefully anywhere backdrop-filter isn't supported. */
+.hero-card,
+.module-card,
+.stat-card,
+.login-card,
+.modal-content {
+    background:
+        linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+        linear-gradient(135deg, rgba(31, 154, 137, 0.35), rgba(124, 99, 201, 0.3) 55%, rgba(63, 111, 168, 0.25)) border-box;
+    border: 1px solid transparent;
+    box-shadow: var(--shadow-soft), var(--edge-highlight);
+}
+
+.module-card:hover,
+.stat-card:hover {
+    box-shadow: var(--shadow-lifted), var(--edge-highlight);
+}
+
+.hero-card {
+    background:
+        linear-gradient(135deg, rgba(31, 154, 137, 0.1) 0%, rgba(63, 111, 168, 0.1) 100%) padding-box,
+        linear-gradient(135deg, rgba(31, 154, 137, 0.4), rgba(124, 99, 201, 0.35)) border-box;
+}
+
+/* A slim brand-gradient bar along the top of module cards that grows in on
+   hover -- and a distinct hue per module so BPT1 (motion capture) and BPT2
+   (static screening) read as two different tools at a glance. */
+.module-card {
+    position: relative;
+}
+
+.module-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 24px;
+    right: 24px;
+    height: 3px;
+    border-radius: 0 0 4px 4px;
+    background: var(--grad-brand);
+    transform: scaleX(0.25);
+    transform-origin: left center;
+    opacity: 0.6;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+
+.module-card:hover::before {
+    transform: scaleX(1);
+    opacity: 1;
+}
+
+.modules-grid>.module-card:nth-child(1) .module-tag {
+    background: rgba(31, 154, 137, 0.16);
+    color: #147a6c;
+    border-color: rgba(31, 154, 137, 0.32);
+}
+
+.modules-grid>.module-card:nth-child(2) .module-tag {
+    background: rgba(63, 111, 168, 0.16);
+    color: #2f578a;
+    border-color: rgba(63, 111, 168, 0.32);
+}
+
+.modules-grid>.module-card:nth-child(1)::before {
+    background: linear-gradient(90deg, #1f9a89, #4fd1b0);
+}
+
+.modules-grid>.module-card:nth-child(2)::before {
+    background: linear-gradient(90deg, #3f6fa8, #7c63c9);
+}
+
+.modules-grid>.module-card:nth-child(1) .btn-primary {
+    background: linear-gradient(135deg, #1f9a89, #4fd1b0);
+}
+
+.modules-grid>.module-card:nth-child(2) .btn-primary {
+    background: linear-gradient(135deg, #3f6fa8, #7c63c9);
+}
+
+/* Icon badges: soft gradient fill + inner glow ring instead of flat tint */
+.stat-icon,
+.upload-icon {
+    background: linear-gradient(135deg, rgba(31, 154, 137, 0.18), rgba(63, 111, 168, 0.14));
+    box-shadow: inset 0 0 0 1px rgba(31, 154, 137, 0.18), inset 0 2px 4px rgba(255, 255, 255, 0.5);
+}
+
+.stat-icon.warning {
+    background: linear-gradient(135deg, rgba(217, 119, 6, 0.2), rgba(217, 119, 6, 0.08));
+    box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.2), inset 0 2px 4px rgba(255, 255, 255, 0.5);
+}
+
+.stat-icon.success {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.08));
+    box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.2), inset 0 2px 4px rgba(255, 255, 255, 0.5);
+}
+
+/* Buttons: deepen the gradient, add a color-matched glow that blooms on
+   hover rather than just darkening */
+.btn-primary {
+    background: var(--grad-brand);
+    background-size: 180% auto;
+    background-position: 0% 50%;
+    letter-spacing: 0.01em;
+    transition: var(--transition), background-position 0.5s ease;
+}
+
+.btn-primary:hover {
+    background-position: 100% 50%;
+    box-shadow: 0 8px 24px -4px rgba(31, 154, 137, 0.5);
+}
+
+.btn-secondary {
+    border: 1px solid var(--border-color);
+}
+
+/* Sidebar: glowing pill behind the active item + a livelier logo mark */
+.menu-item.active {
+    background: linear-gradient(135deg, rgba(31, 154, 137, 0.14), rgba(63, 111, 168, 0.1));
+    box-shadow: inset 0 0 0 1px rgba(31, 154, 137, 0.22), 0 4px 14px -4px rgba(31, 154, 137, 0.3);
+}
+
+.logo-icon {
+    box-shadow: 0 0 0 1px rgba(31, 154, 137, 0.25), 0 4px 16px var(--primary-glow);
+}
+
+.sidebar-logo:hover .logo-icon {
+    box-shadow: 0 0 0 1px rgba(31, 154, 137, 0.4), 0 6px 22px var(--primary-glow);
+}
+
+/* Two-tone spinner: brand gradient ring instead of a single flat color */
+.spinner {
+    border: 4px solid rgba(31, 154, 137, 0.12);
+    border-top-color: var(--primary);
+    border-right-color: var(--secondary);
+}
+
+/* Upload dropzone: a touch more presence on hover, icon lifts */
+.upload-container {
+    transition: var(--transition), transform 0.2s ease;
+}
+
+.upload-container:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-soft);
+}
+
+.upload-container:hover .upload-icon {
+    transform: translateY(-3px) scale(1.05);
+}
+
+.upload-icon {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Risk banners: give each severity its own gradient wash instead of a flat
+   background tint, so the highest-signal element on the results screen
+   reads as considered, not default */
+.risk-level-banner {
+    position: relative;
+    overflow: hidden;
+}
+
+/* Table header gets a subtle sticky presence + gradient underline */
+.custom-table th {
+    position: sticky;
+    top: 0;
+    background: var(--bg-card);
+    backdrop-filter: blur(8px);
+}
+
+.table-container {
+    border-radius: 12px;
+    box-shadow: var(--shadow-soft);
+}
+
+/* Login: gradient-edge card, and the badge/logo floats gently to feel alive
+   rather than static */
+.login-card {
+    box-shadow: var(--shadow-lifted), var(--edge-highlight);
+}
+
+.login-logo {
+    box-shadow: 0 0 0 1px rgba(31, 154, 137, 0.25), 0 6px 20px var(--primary-glow);
+    animation: floatY 4.5s ease-in-out infinite;
+}
+
+@keyframes floatY {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-4px);
+    }
+}
+
+/* Badges: soft gradient fill instead of flat tint, small scale pop when a
+   new value appears (list re-render creates a fresh node, so this replays
+   naturally per row) */
+.badge {
+    animation: badgePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+@keyframes badgePop {
+    from {
+        transform: scale(0.85);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.badge-success {
+    background: linear-gradient(135deg, var(--success-bg), rgba(16, 185, 129, 0.06));
+}
+
+.badge-warning {
+    background: linear-gradient(135deg, var(--warning-bg), rgba(217, 119, 6, 0.06));
+}
+
+.badge-danger {
+    background: linear-gradient(135deg, var(--danger-bg), rgba(220, 38, 38, 0.06));
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .hero-card h2,
+    .score-num,
+    .login-logo,
+    .badge {
+        animation: none !important;
+    }
+}
+
+@media (min-width: 1600px) {
+    #root::after {
+        opacity: 0.02;
     }
 }
