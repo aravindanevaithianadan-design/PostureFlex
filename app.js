@@ -206,7 +206,7 @@ function Sidebar({
     }, /*#__PURE__*/React.createElement("div", {
         className: "logo-icon"
     }, /*#__PURE__*/React.createElement("img", {
-        src: "ps.jpeg",
+        src: "https://github.com/aravindanevaithianadan-design/PostureFlex/blob/main/physio%20login%20logo1.png?raw=true",
         alt: "PostureFlex logo"
     })), /*#__PURE__*/React.createElement("div", {
         className: "logo-text"
@@ -387,7 +387,7 @@ function LoginPage({
     }, /*#__PURE__*/React.createElement("div", {
         className: "login-logo"
     }, /*#__PURE__*/React.createElement("img", {
-        src: "ps.jpeg",
+        src: "https://github.com/aravindanevaithianadan-design/PostureFlex/blob/main/physio%20login%20logo1.png?raw=true",
         alt: "PostureFlex logo"
     })), /*#__PURE__*/React.createElement("h2", null, "PostureFlex"), /*#__PURE__*/React.createElement("p", null, "Clinical posture analysis & motion capture tool")), errorMsg && /*#__PURE__*/React.createElement("div", {
         style: {
