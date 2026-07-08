@@ -1711,6 +1711,8 @@ textarea:focus-visible,
     .sidebar-overlay,
     .score-num,
     .login-card,
+    .hero-card,
+    .hero-card h2,
     .hero-card::after {
         animation: none !important;
     }
@@ -1863,8 +1865,8 @@ textarea:focus-visible,
     }
 
     .header-logo {
-        height: 36px;
-        width: 36px;
+        height: 56px;
+        width: 56px;
     }
 
     .hero-card {
@@ -2445,4 +2447,163 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #c9678c;
+}
+
+/* ===========================================================================
+   DASHBOARD DAZZLE
+   Vivid, colorful, smooth redesign for the Clinical Assessment Hub only
+   (hero banner + stat cards + module cards). Nothing else in the app is
+   touched -- login, live camera, reports, and settings keep their existing
+   calm styling.
+   =========================================================================== */
+
+/* --- Hero banner: slow-shifting jewel-tone gradient + shimmering title --- */
+.hero-card {
+    background: linear-gradient(120deg, #f6d9e8 0%, #e3d3f5 30%, #d3ddfa 60%, #cdeee6 100%);
+    background-size: 320% 320%;
+    animation: dazzleHeroShift 14s ease-in-out infinite;
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    box-shadow: 0 12px 36px -14px rgba(109, 40, 217, 0.22);
+}
+
+@keyframes dazzleHeroShift {
+
+    0%,
+    100% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+.hero-card::after {
+    width: 280px;
+    height: 280px;
+    background: radial-gradient(circle, #ffffff 0%, transparent 70%);
+    opacity: 0.4;
+}
+
+.hero-card h2 {
+    background: linear-gradient(90deg, #a8497a, #6d28d9, #0891b2, #a8497a);
+    background-size: 300% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: dazzleTitleShine 7s linear infinite;
+}
+
+@keyframes dazzleTitleShine {
+    to {
+        background-position: -300% center;
+    }
+}
+
+/* --- Stat cards: colorful gradient icon badges + matching top accent --- */
+.stats-grid>.stat-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.stats-grid>.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+}
+
+.stats-grid>.stat-card:nth-child(2)::before {
+    background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.stats-grid>.stat-card:nth-child(3)::before {
+    background: linear-gradient(90deg, #d97706, #fbbf24);
+}
+
+.stat-icon {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: #ffffff;
+    border: none;
+    box-shadow: 0 8px 18px -6px var(--primary-glow);
+}
+
+.stat-icon.success {
+    background: linear-gradient(135deg, #10b981, #34d399);
+    color: #ffffff;
+    box-shadow: 0 8px 18px -6px rgba(16, 185, 129, 0.4);
+}
+
+.stat-icon.warning {
+    background: linear-gradient(135deg, #d97706, #fbbf24);
+    color: #ffffff;
+    box-shadow: 0 8px 18px -6px rgba(217, 119, 6, 0.4);
+}
+
+.stats-grid>.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 18px 36px -14px rgba(43, 34, 41, 0.2);
+}
+
+/* --- Module cards: colorful top accent + soft diagonal shine sweep --- */
+.modules-grid>.module-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.modules-grid>.module-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #6366f1, #06b6d4);
+}
+
+.modules-grid>.module-card:nth-child(2)::before {
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+}
+
+.modules-grid>.module-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -60%;
+    width: 45%;
+    height: 100%;
+    background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+    transform: skewX(-20deg);
+    transition: left 0.7s ease;
+    pointer-events: none;
+}
+
+.modules-grid>.module-card:hover::after {
+    left: 130%;
+}
+
+.modules-grid>.module-card:nth-child(1) .module-tag {
+    background: linear-gradient(90deg, #6366f1, #06b6d4);
+    color: #ffffff;
+    border: none;
+}
+
+.modules-grid>.module-card:nth-child(2) .module-tag {
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    color: #ffffff;
+    border: none;
+}
+
+.modules-grid>.module-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 22px 44px -16px rgba(43, 34, 41, 0.22);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .modules-grid>.module-card::after {
+        transition: none;
+    }
 }
