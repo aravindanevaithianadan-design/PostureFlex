@@ -1526,17 +1526,22 @@ function drawBPT2ViewOverlay(ctx, viewKey, points) {
     };
 
     if (viewKey === "anterior") {
+        line(points.earL, points.earR, "#fb923c");
         line(points.acromionL, points.acromionR, "rgba(99,102,241,0.9)");
         line(points.asisL, points.asisR, "rgba(236,72,153,0.9)");
         line(points.kneeL, points.kneeR, "rgba(16,185,129,0.9)");
+        dot(points.earL, "#fb923c"); dot(points.earR, "#fb923c");
         dot(points.acromionL, "white"); dot(points.acromionR, "white");
         dot(points.asisL, "white"); dot(points.asisR, "white");
         dot(points.kneeL, "white"); dot(points.kneeR, "white");
         dot(points.sternum, "#fbbf24"); dot(points.umbilicus, "#fbbf24"); dot(points.patellaeCenter, "#fbbf24");
     } else if (viewKey === "posterior") {
+        line(points.earL, points.earR, "#fb923c");
         line(points.acromionL, points.acromionR, "rgba(99,102,241,0.9)");
+        line(points.scapulaInferiorL, points.scapulaInferiorR, "#60a5fa");
         line(points.psisL, points.psisR, "rgba(236,72,153,0.9)");
         line(points.kneeL, points.kneeR, "rgba(16,185,129,0.9)");
+        dot(points.earL, "#fb923c"); dot(points.earR, "#fb923c");
         dot(points.acromionL, "white"); dot(points.acromionR, "white");
         dot(points.psisL, "white"); dot(points.psisR, "white");
         dot(points.kneeL, "white"); dot(points.kneeR, "white");
@@ -1544,8 +1549,10 @@ function drawBPT2ViewOverlay(ctx, viewKey, points) {
         dot(points.scapulaInferiorL, "#60a5fa"); dot(points.scapulaInferiorR, "#60a5fa");
     } else if (viewKey === "rightLateral" || viewKey === "leftLateral") {
         const p2 = points.condyle || points.epicondyle;
+        line(points.headRef, points.acromion, "#fb923c");
         line(points.acromion, points.trochanter, "rgba(99,102,241,0.9)");
         line(points.trochanter, p2, "rgba(16,185,129,0.9)");
+        dot(points.headRef, "#fb923c");
         dot(points.acromion, "white"); dot(points.trochanter, "white"); dot(p2, "white");
     }
 }
