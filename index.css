@@ -271,9 +271,7 @@ h6 {
     font-size: 22px;
     font-weight: 800;
     background: linear-gradient(to right, #16232a, #1f9a89);
-    background-clip: text;
     -webkit-background-clip: text;
-    background-clip: text;
     -webkit-text-fill-color: transparent;
     font-family: var(--font-heading);
 }
@@ -351,8 +349,8 @@ h6 {
 }
 
 .header-logo {
-    height: 74px;
-    width: 74px;
+    height: 56px;
+    width: 56px;
     object-fit: contain;
     flex-shrink: 0;
 }
@@ -957,7 +955,6 @@ h6 {
     font-weight: 900;
     font-family: var(--font-heading);
     background: linear-gradient(to right, #1f9a89, #7c63c9);
-    background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
