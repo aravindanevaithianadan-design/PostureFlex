@@ -5,7 +5,7 @@ const {
     useRef
 } = React;
 function App() {
-    // Session Routing State
+    // Session Routing 
     const [currentRoute, setCurrentRoute] = useState("dashboard"); // login, dashboard, bpt1, bpt2, reports, settings
     const [userSession, setUserSession] = useState(null);
     const [dbState, setDbState] = useState({
