@@ -29,7 +29,7 @@ function App() {
     });
     const [activeReportPreview, setActiveReportPreview] = useState(null);
 
-    // Mobile off-canvas sidebar toggle state
+    // Mobile off-canvas sidebar toggle
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
     // Initial load
