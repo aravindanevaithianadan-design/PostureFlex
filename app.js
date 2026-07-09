@@ -5,7 +5,7 @@ const {
     useRef
 } = React;
 function App() {
-    // Session Routing 
+    // Session Routing State
     const [currentRoute, setCurrentRoute] = useState("dashboard"); // login, dashboard, bpt1, bpt2, reports, settings
     const [userSession, setUserSession] = useState(null);
     const [dbState, setDbState] = useState({
@@ -29,7 +29,7 @@ function App() {
     });
     const [activeReportPreview, setActiveReportPreview] = useState(null);
 
-    // Mobile off-canvas sidebar toggle
+    // Mobile off-canvas sidebar toggle state
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
     // Initial load
