@@ -15,10 +15,18 @@
     };
     // Reference physiological values (squat assessment)
     const REFERENCE_STANDARDS = {
-        knee: { name: "Knee Flexion", refRange: "80° - 110°", minNormal: 80, maxNormal: 110, warningThreshold: 15 },
-        hip: { name: "Hip Flexion", refRange: "80° - 105°", minNormal: 80, maxNormal: 105, warningThreshold: 15 },
-        trunk: { name: "Trunk Lean", refRange: "10° - 30°", minNormal: 10, maxNormal: 30, warningThreshold: 10 },
-        ankle: { name: "Ankle Alignment", refRange: "70° - 85°", minNormal: 70, maxNormal: 85, warningThreshold: 8 }
+        // Updated per D. SQUAT ANALYSIS doc (Module 1, revised thresholds).
+        // pose.js measures raw interior joint angles (180deg = straight, shrinks with flexion),
+        // while the clinical doc uses goniometric flexion (0deg = neutral, grows with flexion),
+        // so doc values were converted: knee/hip -> 180 - flexion; ankle -> 90 - dorsiflexion.
+        // Doc knee flexion 130-160deg -> interior 20-50deg
+        knee: { name: "Knee Flexion", refRange: "20° - 50°", minNormal: 20, maxNormal: 50, warningThreshold: 15 },
+        // Doc hip flexion 100-130deg -> interior 50-80deg
+        hip: { name: "Hip Flexion", refRange: "50° - 80°", minNormal: 50, maxNormal: 80, warningThreshold: 15 },
+        // Doc trunk forward lean 20-50deg (same convention, no conversion needed)
+        trunk: { name: "Trunk Lean", refRange: "20° - 50°", minNormal: 20, maxNormal: 50, warningThreshold: 10 },
+        // Doc ankle dorsiflexion 20-40deg -> interior 50-70deg
+        ankle: { name: "Ankle Alignment", refRange: "50° - 70°", minNormal: 50, maxNormal: 70, warningThreshold: 8 }
     };
     // Calculate angle ABC in degrees where B is vertex
     function calculateAngle(A, B, C) {
@@ -267,6 +275,7 @@
 
         if (views.anterior && !views.anterior.outOfFrame) {
             const m = views.anterior.metrics;
+            // Ordered per requested report sequence: Head/Neck, Shoulder, Hip, Knee
             checkOne("Anterior", "headPositionTilt", m.headPositionTilt, "L-R");
             checkOne("Anterior", "shoulderTilt", m.shoulderTilt, "L-R");
             checkOne("Anterior", "pelvicTiltFrontal", m.pelvicTiltFrontal, "L-R");
@@ -274,12 +283,13 @@
         }
         if (views.posterior && !views.posterior.outOfFrame) {
             const m = views.posterior.metrics;
+            // Ordered per requested report sequence: Head/Neck, Shoulder, Trunk, Hip, Knee
             checkOne("Posterior", "headPositionTilt", m.headPositionTilt, "L-R");
             checkOne("Posterior", "shoulderTilt", m.shoulderTilt, "L-R");
+            checkOne("Posterior", "scapularSymmetry", m.scapularSymmetry, "L-R");
+            checkOne("Posterior", "spinalAlignment", m.spinalAlignment, "Center");
             checkOne("Posterior", "pelvicTiltPosterior", m.pelvicTiltPosterior, "L-R");
             checkOne("Posterior", "kneeAlignmentPosterior", m.kneeAlignmentPosterior, "L-R");
-            checkOne("Posterior", "spinalAlignment", m.spinalAlignment, "Center");
-            checkOne("Posterior", "scapularSymmetry", m.scapularSymmetry, "L-R");
         }
         if (views.rightLateral && !views.rightLateral.outOfFrame) {
             const m = views.rightLateral.metrics;
@@ -542,11 +552,13 @@
 
             if (isSquatting) {
                 // Assessment standards during SQUAT
-                detailedDevs.push(checkDeviation("Knee Flexion", "Left", angles.leftKnee, REFERENCE_STANDARDS.knee));
-                detailedDevs.push(checkDeviation("Knee Flexion", "Right", angles.rightKnee, REFERENCE_STANDARDS.knee));
+                // Ordered per requested report sequence: Head/Neck, Shoulder, Trunk, Hip, Knee, Ankle, Heel
+                // (Head/Neck, Shoulder, Heel are not computed in this module, so only Trunk/Hip/Knee/Ankle appear)
+                detailedDevs.push(checkDeviation("Trunk Lean", "Center", angles.avgTrunk, REFERENCE_STANDARDS.trunk));
                 detailedDevs.push(checkDeviation("Hip Flexion", "Left", angles.leftHip, REFERENCE_STANDARDS.hip));
                 detailedDevs.push(checkDeviation("Hip Flexion", "Right", angles.rightHip, REFERENCE_STANDARDS.hip));
-                detailedDevs.push(checkDeviation("Trunk Lean", "Center", angles.avgTrunk, REFERENCE_STANDARDS.trunk));
+                detailedDevs.push(checkDeviation("Knee Flexion", "Left", angles.leftKnee, REFERENCE_STANDARDS.knee));
+                detailedDevs.push(checkDeviation("Knee Flexion", "Right", angles.rightKnee, REFERENCE_STANDARDS.knee));
 
                 // Ankle flexion is optional but good
                 if (angles.leftAnkle > 0) {
@@ -558,9 +570,10 @@
                 const standKneeStd = { name: "Knee Standing", refRange: "170° - 180°", minNormal: 170, maxNormal: 180, warningThreshold: 8 };
                 const standTrunkStd = { name: "Trunk Standing", refRange: "0° - 8°", minNormal: 0, maxNormal: 8, warningThreshold: 8 };
 
+                // Ordered per requested report sequence: Trunk before Knee
+                detailedDevs.push(checkDeviation("Trunk Lean", "Center", angles.avgTrunk, standTrunkStd));
                 detailedDevs.push(checkDeviation("Knee Flexion", "Left", angles.leftKnee, standKneeStd));
                 detailedDevs.push(checkDeviation("Knee Flexion", "Right", angles.rightKnee, standKneeStd));
-                detailedDevs.push(checkDeviation("Trunk Lean", "Center", angles.avgTrunk, standTrunkStd));
             }
 
             // Check Symmetry
@@ -618,9 +631,10 @@
                 const symDev = deviations.find(d => d.joint === "Bilateral Symmetry");
 
                 if (kneeDev) {
-                    if (kneeDev.angle > 110) {
+                    // Thresholds re-tuned to the current REFERENCE_STANDARDS.knee range (20-50deg interior angle).
+                    if (kneeDev.angle > 50) {
                         remarks.push("Knee flexion is reduced (squat depth is too shallow), which may indicate quadriceps tightness, ankle mobility restriction (limited dorsiflexion), or fear of movement.");
-                    } else if (kneeDev.angle < 75) {
+                    } else if (kneeDev.angle < 15) {
                         remarks.push("Knee flexion is excessive (squatting past normal range of control), leading to increased compression stresses on patellofemoral joints.");
                     }
                 }
