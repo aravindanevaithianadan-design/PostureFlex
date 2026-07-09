@@ -674,12 +674,21 @@ function DashboardView({
     }, "View Report")))))))));
 }
 // BPT1 Module View (Webcam live capture)
+// 4-side static capture config for Module 1 squat visual documentation (Anterior view
+// reuses the live-tracked freeze frame; Posterior/Lateral views are additional static
+// captures added to the report images, same pattern as BPT2's 4-view scan).
+const BPT1_VIEW_CONFIG = [
+    { key: "anterior", label: "Anterior View (Squat Depth)", instructions: "Face the camera directly at the lowest point of the squat." },
+    { key: "posterior", label: "Posterior View (Squat Depth)", instructions: "Turn so your back faces the camera and repeat the squat to the same depth." },
+    { key: "rightLateral", label: "Right Lateral View (Squat Depth)", instructions: "Show your right side profile to the camera and repeat the squat to the same depth." },
+    { key: "leftLateral", label: "Left Lateral View (Squat Depth)", instructions: "Show your left side profile to the camera and repeat the squat to the same depth." }
+];
 function BPT1Module({
     assessment,
     onSaveAssessment,
     onCancel
 }) {
-    const [step, setStep] = useState(2); // 1 is form (completed), 2 is capturing, 3 is preview report
+    const [step, setStep] = useState(2); // 1 intake (completed), 2 live capture, 3 additional-views capture, 4 preview report
     const [videoActive, setVideoActive] = useState(false);
     const [trackingConfidence, setTrackingConfidence] = useState(0);
     const [outOfFrame, setOutOfFrame] = useState(true);
@@ -694,20 +703,100 @@ function BPT1Module({
     const [reportPreviewData, setReportPreviewData] = useState(null);
     const [saving, setSaving] = useState(false);
     const [isFrontCamera, setIsFrontCamera] = useState(true);
+    const [multiViewIndex, setMultiViewIndex] = useState(0); // index into BPT1_VIEW_CONFIG for step 3 (starts at 1: posterior)
+    const [capturedViews, setCapturedViews] = useState({}); // { anterior: base64, posterior: base64, rightLateral: base64, leftLateral: base64 }
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const poseRef = useRef(null);
     const cameraRef = useRef(null);
     const frozenFrameRef = useRef(null); // stores captured image data URL
+    const finalRecordRef = useRef(null); // holds finalAssessment/interpretation/recommendations from the anterior capture
     // Start video on mount
     useEffect(() => {
         if (step === 2) {
             startCamera();
+        } else if (step === 3) {
+            startPlainCamera();
         } else {
             stopCamera();
         }
         return () => stopCamera();
     }, [step]);
+    // Lightweight camera feed for the additional-view captures (step 3): no live
+    // biomechanical overlay is drawn here, just a mirrored preview + frame-presence
+    // check via the same pose module, so the assessor can position the patient
+    // before freezing each of the 3 remaining static views.
+    const startPlainCamera = async () => {
+        setVideoActive(true);
+        setOutOfFrame(true);
+        setTimeout(async () => {
+            const videoElement = videoRef.current;
+            const canvasElement = canvasRef.current;
+            if (!videoElement || !canvasElement) return;
+            const canvasCtx = canvasElement.getContext('2d');
+
+            const poseInstance = new window.Pose({
+                locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+            });
+            poseInstance.setOptions({
+                modelComplexity: 1,
+                smoothLandmarks: true,
+                enableSegmentation: false,
+                minDetectionConfidence: 0.55,
+                minTrackingConfidence: 0.55
+            });
+            poseInstance.onResults(results => {
+                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                canvasCtx.save();
+                canvasCtx.translate(canvasElement.width, 0);
+                canvasCtx.scale(-1, 1);
+                canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+                canvasCtx.restore();
+                if (results.poseLandmarks) {
+                    const analysis = window.PF_Pose.analyzeLandmarks(results.poseLandmarks);
+                    setTrackingConfidence(analysis.confidence);
+                    setOutOfFrame(analysis.outOfFrame);
+                } else {
+                    setOutOfFrame(true);
+                }
+            });
+            poseRef.current = poseInstance;
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: 640,
+                        height: 480,
+                        facingMode: { ideal: "environment" }
+                    }
+                });
+                const [videoTrack] = stream.getVideoTracks();
+                const actualFacingMode = videoTrack && videoTrack.getSettings ? videoTrack.getSettings().facingMode : undefined;
+                setIsFrontCamera(actualFacingMode !== "environment");
+                videoElement.srcObject = stream;
+                videoElement.play();
+
+                let active = true;
+                const processFrame = async () => {
+                    if (!active) return;
+                    if (videoElement.readyState >= 2) {
+                        await poseInstance.send({ image: videoElement });
+                    }
+                    requestAnimationFrame(processFrame);
+                };
+                cameraRef.current = {
+                    stop: () => {
+                        active = false;
+                        stream.getTracks().forEach(track => track.stop());
+                    }
+                };
+                requestAnimationFrame(processFrame);
+            } catch (err) {
+                console.error("Camera access error:", err);
+                alert("Camera access denied or device busy. Please ensure camera permissions are active.");
+                onCancel();
+            }
+        }, 300);
+    };
     const startCamera = async () => {
         setVideoActive(true);
 
@@ -870,9 +959,9 @@ function BPT1Module({
         drawJointCircle(lShoulder, "white");
         drawJointCircle(rShoulder, "white");
 
-        // Dynamic color for knee based on flexion target (80-110)
-        const lKneeColor = angles.leftKnee >= 80 && angles.leftKnee <= 110 ? colorNormal : analysis.depthPct > 40 ? colorDev : "#6366f1";
-        const rKneeColor = angles.rightKnee >= 80 && angles.rightKnee <= 110 ? colorNormal : analysis.depthPct > 40 ? colorDev : "#6366f1";
+        // Dynamic color for knee based on flexion target (20-50, per updated Module 1 reference)
+        const lKneeColor = angles.leftKnee >= 20 && angles.leftKnee <= 50 ? colorNormal : analysis.depthPct > 40 ? colorDev : "#6366f1";
+        const rKneeColor = angles.rightKnee >= 20 && angles.rightKnee <= 50 ? colorNormal : analysis.depthPct > 40 ? colorDev : "#6366f1";
         drawJointCircle(lKnee, lKneeColor);
         drawJointCircle(rKnee, rKneeColor);
         drawJointCircle(lHip, "white");
@@ -899,7 +988,9 @@ function BPT1Module({
         // Stop Camera feed
         stopCamera();
 
-        // Set up final clinical records
+        // Set up final clinical records (measurements come from this anterior,
+        // live-tracked capture -- the additional views captured next are for
+        // visual documentation only and don't change these values)
         const finalAssessment = assessmentRecord || {
             overallStatus: "Normal",
             measurements: [],
@@ -907,6 +998,40 @@ function BPT1Module({
         };
         const interpretationText = window.PF_Pose.generateInterpretation(finalAssessment, squatState);
         const recommendationsText = window.PF_Pose.generateRecommendations(finalAssessment);
+        finalRecordRef.current = { finalAssessment, interpretationText, recommendationsText };
+        setCapturedViews({ anterior: dataUrl });
+        setMultiViewIndex(1); // move on to Posterior (index 1) for the next capture
+        setStep(3); // Go to additional-views capture
+    };
+    const handleCaptureAdditionalView = () => {
+        const canvasElement = canvasRef.current;
+        const activeConfig = BPT1_VIEW_CONFIG[multiViewIndex];
+        if (!canvasElement || !activeConfig) return;
+        if (outOfFrame) {
+            alert("Patient not clearly detected. Please ensure the full body is visible before capturing this view.");
+            return;
+        }
+        const dataUrl = canvasElement.toDataURL('image/png');
+        const updated = { ...capturedViews, [activeConfig.key]: dataUrl };
+        setCapturedViews(updated);
+
+        if (multiViewIndex < BPT1_VIEW_CONFIG.length - 1) {
+            setOutOfFrame(true);
+            setMultiViewIndex(multiViewIndex + 1);
+        } else {
+            finalizeMultiViewReport(updated);
+        }
+    };
+    const handleSkipAdditionalViews = () => {
+        finalizeMultiViewReport(capturedViews);
+    };
+    const finalizeMultiViewReport = allViews => {
+        stopCamera();
+        const { finalAssessment, interpretationText, recommendationsText } = finalRecordRef.current || {
+            finalAssessment: assessmentRecord || { overallStatus: "Normal", measurements: [], symmetryScore: 100 },
+            interpretationText: window.PF_Pose.generateInterpretation(assessmentRecord, squatState),
+            recommendationsText: window.PF_Pose.generateRecommendations(assessmentRecord)
+        };
         setReportPreviewData({
             patient: {
                 id: assessment.patient.id,
@@ -924,11 +1049,15 @@ function BPT1Module({
                 notes: assessment.notes
             },
             measurements: finalAssessment.measurements || [],
-            image_base64: dataUrl,
+            image_base64: allViews.anterior || frozenFrameRef.current,
+            images: BPT1_VIEW_CONFIG.map(v => ({
+                label: v.label,
+                base64: allViews[v.key] || null
+            })).filter(i => i.base64),
             interpretation: interpretationText,
             recommendations: recommendationsText
         });
-        setStep(3); // Go to preview
+        setStep(4); // Go to preview
     };
     const handleFinalSave = async () => {
         setSaving(true);
@@ -963,16 +1092,22 @@ function BPT1Module({
     }, "✓"), /*#__PURE__*/React.createElement("div", {
         className: "step-label"
     }, "Intake")), /*#__PURE__*/React.createElement("div", {
-        className: `step ${step === 2 ? "active" : "completed"}`
+        className: `step ${step === 2 ? "active" : step > 2 ? "completed" : ""}`
     }, /*#__PURE__*/React.createElement("div", {
         className: "step-num"
     }, "2"), /*#__PURE__*/React.createElement("div", {
         className: "step-label"
     }, "Analysis")), /*#__PURE__*/React.createElement("div", {
-        className: `step ${step === 3 ? "active" : ""}`
+        className: `step ${step === 3 ? "active" : step > 3 ? "completed" : ""}`
     }, /*#__PURE__*/React.createElement("div", {
         className: "step-num"
     }, "3"), /*#__PURE__*/React.createElement("div", {
+        className: "step-label"
+    }, step === 3 ? `View ${multiViewIndex + 1} of 4` : "4-Side Views")), /*#__PURE__*/React.createElement("div", {
+        className: `step ${step === 4 ? "active" : ""}`
+    }, /*#__PURE__*/React.createElement("div", {
+        className: "step-num"
+    }, "4"), /*#__PURE__*/React.createElement("div", {
         className: "step-label"
     }, "Preview Report"))), step === 2 && /*#__PURE__*/React.createElement("div", {
         className: "analysis-layout"
@@ -1069,7 +1204,7 @@ function BPT1Module({
             fontSize: 12,
             marginTop: 4
         }
-    }, "Left Knee Flexion (Ref: 80° - 110°)")), /*#__PURE__*/React.createElement("div", {
+    }, "Left Knee Flexion (Ref: 20° - 50°)")), /*#__PURE__*/React.createElement("div", {
         className: "risk-level-banner",
         style: {
             background: assessmentRecord?.overallStatus === "Significant Deviation" ? "var(--danger-bg)" : assessmentRecord?.overallStatus === "Mild Deviation" ? "var(--warning-bg)" : "var(--success-bg)",
@@ -1094,24 +1229,90 @@ function BPT1Module({
     }, /*#__PURE__*/React.createElement(AngleRow, {
         label: "Left Knee Flexion",
         val: liveAngles.leftKnee,
-        refRange: "80° - 110°",
+        refRange: "20° - 50°",
         status: assessmentRecord?.measurements?.find(m => m.joint === "Knee Flexion" && m.side === "Left")?.status || "Normal"
     }), /*#__PURE__*/React.createElement(AngleRow, {
         label: "Right Knee Flexion",
         val: liveAngles.rightKnee,
-        refRange: "80° - 110°",
+        refRange: "20° - 50°",
         status: assessmentRecord?.measurements?.find(m => m.joint === "Knee Flexion" && m.side === "Right")?.status || "Normal"
     }), /*#__PURE__*/React.createElement(AngleRow, {
         label: "Trunk Alignment",
         val: liveAngles.avgTrunk,
-        refRange: "10° - 30°",
+        refRange: "20° - 50°",
         status: assessmentRecord?.measurements?.find(m => m.joint === "Trunk Lean")?.status || "Normal"
     }), /*#__PURE__*/React.createElement(AngleRow, {
         label: "Left Ankle",
         val: liveAngles.leftAnkle,
-        refRange: "70° - 85°",
+        refRange: "50° - 70°",
         status: assessmentRecord?.measurements?.find(m => m.joint === "Ankle Alignment" && m.side === "Left")?.status || "Normal"
-    }))))), step === 3 && reportPreviewData && /*#__PURE__*/React.createElement("div", {
+    }))))), step === 3 && /*#__PURE__*/React.createElement("div", {
+        className: "analysis-layout"
+    }, /*#__PURE__*/React.createElement("div", {
+        style: { display: "flex", flexDirection: "column", gap: 16 }
+    }, /*#__PURE__*/React.createElement("div", {
+        className: "glass",
+        style: { padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
+        style: { margin: 0 }
+    }, BPT1_VIEW_CONFIG[multiViewIndex].label), /*#__PURE__*/React.createElement("p", {
+        style: { margin: "4px 0 0", color: "var(--text-muted)", fontSize: 13 }
+    }, BPT1_VIEW_CONFIG[multiViewIndex].instructions)), /*#__PURE__*/React.createElement("div", {
+        className: "view-progress-dots"
+    }, BPT1_VIEW_CONFIG.map((v, idx) => /*#__PURE__*/React.createElement("div", {
+        key: v.key,
+        className: `view-progress-dot ${capturedViews[v.key] ? "done" : idx === multiViewIndex ? "active" : ""}`,
+        title: v.label
+    })))), /*#__PURE__*/React.createElement("div", {
+        className: "camera-panel"
+    }, /*#__PURE__*/React.createElement("video", {
+        ref: videoRef,
+        className: "video-element" + (isFrontCamera ? " mirrored" : ""),
+        muted: true,
+        style: { display: "none" }
+    }), /*#__PURE__*/React.createElement("canvas", {
+        ref: canvasRef,
+        className: "canvas-element" + (isFrontCamera ? " mirrored" : ""),
+        width: "640",
+        height: "480"
+    }), outOfFrame && /*#__PURE__*/React.createElement("div", {
+        className: "out-of-frame-overlay"
+    }, /*#__PURE__*/React.createElement("svg", {
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "white",
+        strokeWidth: "2",
+        style: { width: 48, height: 48 }
+    }, /*#__PURE__*/React.createElement("path", {
+        d: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L1.34 16c-.77 1.333.192 3 1.732 3z"
+    })), /*#__PURE__*/React.createElement("div", {
+        className: "frame-alert-text"
+    }, "Patient Not Detected in Frame"), /*#__PURE__*/React.createElement("p", {
+        style: { color: "#d1d5db", fontSize: 13, textAlign: "center" }
+    }, BPT1_VIEW_CONFIG[multiViewIndex].instructions))), /*#__PURE__*/React.createElement("div", {
+        style: { display: "flex", justifyContent: "space-between" }
+    }, /*#__PURE__*/React.createElement("button", {
+        className: "btn btn-secondary",
+        onClick: handleSkipAdditionalViews
+    }, "Skip Remaining Views"), /*#__PURE__*/React.createElement("button", {
+        className: "btn btn-primary",
+        onClick: handleCaptureAdditionalView,
+        disabled: outOfFrame
+    }, multiViewIndex < BPT1_VIEW_CONFIG.length - 1 ? `Capture & Continue to ${BPT1_VIEW_CONFIG[multiViewIndex + 1].label}` : "Capture & Finish"))), /*#__PURE__*/React.createElement("div", {
+        className: "side-panel"
+    }, /*#__PURE__*/React.createElement("div", {
+        className: "glass",
+        style: { padding: 20 }
+    }, /*#__PURE__*/React.createElement("div", {
+        className: "dashboard-card-header"
+    }, /*#__PURE__*/React.createElement("h3", null, "Patient: ", assessment.patient.name), /*#__PURE__*/React.createElement("span", {
+        className: "badge badge-success",
+        style: { background: "rgba(139, 92, 246, 0.15)", color: "var(--text-purple)" }
+    }, "Module: BPT1")), /*#__PURE__*/React.createElement("p", {
+        style: { color: "var(--text-muted)", fontSize: 13, marginBottom: 12 }
+    }, "Tracking Confidence: ", Math.round(trackingConfidence * 100), "%"), /*#__PURE__*/React.createElement("p", {
+        style: { color: "var(--text-muted)", fontSize: 13 }
+    }, "Anterior-view squat measurements are already captured. These additional views are added to the report for visual documentation and are optional -- use \"Skip Remaining Views\" at any point to finish with fewer than 4 images.")))), step === 4 && reportPreviewData && /*#__PURE__*/React.createElement("div", {
         className: "animate-fade-in",
         style: {
             display: "flex",
