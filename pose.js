@@ -72,7 +72,9 @@
         pelvicTiltPosterior: { name: "Pelvic Level (PSIS L/R)", refRange: "0° - 2°", minNormal: 0, maxNormal: 2, warningThreshold: 5 },
         kneeAlignmentFrontal: { name: "Knee Alignment (Patellae)", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, warningThreshold: 6 },
         kneeAlignmentPosterior: { name: "Knee Alignment (Midpoint)", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, warningThreshold: 6 },
+        ankleAlignmentPosterior: { name: "Ankle/Malleolar Symmetry (Malleoli L/R)", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, warningThreshold: 6 },
         spinalAlignment: { name: "Spinal Alignment (C7 to PSIS Midpoint)", refRange: "0° - 2°", minNormal: 0, maxNormal: 2, warningThreshold: 5 },
+        trunkSymmetryPosterior: { name: "Trunk Symmetry (Shoulder-Hip Alignment)", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, warningThreshold: 6 },
         trunkSagittal: { name: "Trunk-Pelvis Sagittal Alignment (Acromion-Trochanter)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 10 },
         thighSagittal: { name: "Pelvis-Knee Sagittal Alignment (Trochanter-Condyle)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 10 },
         sagittalCurvature: { name: "Overall Sagittal Curvature", refRange: "0° - 6°", minNormal: 0, maxNormal: 6, warningThreshold: 12 },
@@ -160,6 +162,10 @@
         const lShoulder = landmarks[LM.L_SHOULDER], rShoulder = landmarks[LM.R_SHOULDER];
         const lHip = landmarks[LM.L_HIP], rHip = landmarks[LM.R_HIP];
         const lKnee = landmarks[LM.L_KNEE], rKnee = landmarks[LM.R_KNEE];
+        const lAnkle = landmarks[LM.L_ANKLE], rAnkle = landmarks[LM.R_ANKLE];
+        const anklesVisible = (lAnkle?.visibility || 0) >= 0.3 && (rAnkle?.visibility || 0) >= 0.3;
+        const lFoot = landmarks[LM.L_FOOT], rFoot = landmarks[LM.R_FOOT];
+        const lWrist = landmarks[LM.L_WRIST], rWrist = landmarks[LM.R_WRIST];
         const lEar = landmarks[LM.L_EAR], rEar = landmarks[LM.R_EAR];
         const earsVisible = (lEar?.visibility || 0) >= 0.3 && (rEar?.visibility || 0) >= 0.3;
         const shoulderMid = midpoint(lShoulder, rShoulder);
@@ -176,17 +182,23 @@
             points: {
                 earL: lEar, earR: rEar,
                 c7: c7Approx,
+                shoulderMid, hipMid,
                 scapulaInferiorL, scapulaInferiorR,
                 acromionL: lShoulder, acromionR: rShoulder,
                 psisL: lHip, psisR: rHip,
                 kneeL: lKnee, kneeR: rKnee,
-                kneeMidpoint: midpoint(lKnee, rKnee)
+                kneeMidpoint: midpoint(lKnee, rKnee),
+                ankleL: lAnkle, ankleR: rAnkle,
+                footL: lFoot, footR: rFoot,
+                handL: lWrist, handR: rWrist
             },
             metrics: {
                 ...(earsVisible ? { headPositionTilt: calculateTiltFromHorizontal(lEar, rEar) } : {}),
                 shoulderTilt: calculateTiltFromHorizontal(lShoulder, rShoulder),
+                trunkSymmetryPosterior: (shoulderMid && hipMid) ? calculateAngleFromVertical(shoulderMid, hipMid) : 0,
                 pelvicTiltPosterior: calculateTiltFromHorizontal(lHip, rHip),
                 kneeAlignmentPosterior: calculateTiltFromHorizontal(lKnee, rKnee),
+                ...(anklesVisible ? { ankleAlignmentPosterior: calculateTiltFromHorizontal(lAnkle, rAnkle) } : {}),
                 spinalAlignment: c7Approx ? calculateAngleFromVertical(c7Approx, hipMid) : 0,
                 scapularSymmetry: calculateTiltFromHorizontal(scapulaInferiorL, scapulaInferiorR)
             }
@@ -201,6 +213,9 @@
         const acromion = landmarks[LM.R_SHOULDER];
         const trochanter = landmarks[LM.R_HIP]; // greater trochanter approximation
         const condyle = landmarks[LM.R_KNEE]; // lateral femoral condyle approximation
+        const ankle = landmarks[LM.R_ANKLE];
+        const foot = landmarks[LM.R_FOOT];
+        const hand = landmarks[LM.R_WRIST];
         const headRef = resolveHeadRefPoint(landmarks, LM.R_EAR); // ear, falls back to nose
 
         const straightLineAngle = calculateAngle(acromion, trochanter, condyle);
@@ -209,7 +224,7 @@
             view: "Right Lateral",
             outOfFrame: false,
             confidence: check.confidence,
-            points: { acromion, trochanter, condyle, headRef },
+            points: { acromion, trochanter, condyle, ankle, foot, hand, headRef },
             metrics: {
                 ...(headRef ? { headPositionForward: calculateAngleFromVertical(headRef, acromion) } : {}),
                 trunkSagittal: calculateAngleFromVertical(acromion, trochanter),
@@ -227,6 +242,9 @@
         const acromion = landmarks[LM.L_SHOULDER];
         const trochanter = landmarks[LM.L_HIP]; // greater trochanter approximation
         const epicondyle = landmarks[LM.L_KNEE]; // lateral femoral epicondyle approximation
+        const ankle = landmarks[LM.L_ANKLE];
+        const foot = landmarks[LM.L_FOOT];
+        const hand = landmarks[LM.L_WRIST];
         const headRef = resolveHeadRefPoint(landmarks, LM.L_EAR); // ear, falls back to nose
 
         const straightLineAngle = calculateAngle(acromion, trochanter, epicondyle);
@@ -235,7 +253,7 @@
             view: "Left Lateral",
             outOfFrame: false,
             confidence: check.confidence,
-            points: { acromion, trochanter, epicondyle, headRef },
+            points: { acromion, trochanter, epicondyle, ankle, foot, hand, headRef },
             metrics: {
                 ...(headRef ? { headPositionForward: calculateAngleFromVertical(headRef, acromion) } : {}),
                 trunkSagittal: calculateAngleFromVertical(acromion, trochanter),
@@ -313,6 +331,69 @@
         return { overallStatus, measurements };
     }
 
+    // --- Module 1 (BPT1): evaluates the Posterior / Right Lateral / Left Lateral
+    // static captures only (Anterior in Module 1 is the live squat-depth capture,
+    // evaluated separately by evaluatePosture). Views are ordered Right Lateral,
+    // Left Lateral, then Posterior (Anterior/squat is prepended by the caller),
+    // and within each view, joints are ordered Neck, Shoulder, Trunk, Hip, Knee,
+    // Ankle to match the requested clinical report sequence.
+    function evaluateModule1StaticViews(views) {
+        let devCount = 0, sigDevCount = 0;
+        const measurements = [];
+
+        const checkOne = (viewLabel, metricKey, val, side) => {
+            const standards = STATIC_STANDARDS[metricKey];
+            if (!standards || val === undefined || val === null) return;
+            let status = "Normal";
+            let diff = 0;
+            if (val > standards.maxNormal) {
+                diff = val - standards.maxNormal;
+                status = diff > standards.warningThreshold ? "Significant Deviation" : "Mild Deviation";
+            }
+            if (status !== "Normal") {
+                devCount++;
+                if (status === "Significant Deviation") sigDevCount++;
+            }
+            measurements.push({
+                joint: `${viewLabel} – ${standards.name}`,
+                side: side || "Compare",
+                angle: val,
+                reference: standards.refRange,
+                deviation: parseFloat(diff.toFixed(1)),
+                status: status
+            });
+        };
+
+        [["Right Lateral", views.rightLateral, "Right"], ["Left Lateral", views.leftLateral, "Left"]].forEach(([label, v, side]) => {
+            if (!v || v.outOfFrame) return;
+            const m = v.metrics;
+            // Neck, Trunk (lean angle - lateral aspect), Hip (drop - sagittal alignment)
+            checkOne(label, "headPositionForward", m.headPositionForward, side);
+            checkOne(label, "trunkSagittal", m.trunkSagittal, side);
+            checkOne(label, "sagittalCurvature", m.sagittalCurvature, side);
+            checkOne(label, "thighSagittal", m.thighSagittal, side);
+        });
+
+        if (views.posterior && !views.posterior.outOfFrame) {
+            const m = views.posterior.metrics;
+            // Neck, Shoulder, Trunk (symmetry), Hip (symmetry/drop), Knee, Ankle/Malleolar
+            checkOne("Posterior", "headPositionTilt", m.headPositionTilt, "L-R");
+            checkOne("Posterior", "shoulderTilt", m.shoulderTilt, "L-R");
+            checkOne("Posterior", "scapularSymmetry", m.scapularSymmetry, "L-R");
+            checkOne("Posterior", "trunkSymmetryPosterior", m.trunkSymmetryPosterior, "L-R");
+            checkOne("Posterior", "spinalAlignment", m.spinalAlignment, "Center");
+            checkOne("Posterior", "pelvicTiltPosterior", m.pelvicTiltPosterior, "L-R");
+            checkOne("Posterior", "kneeAlignmentPosterior", m.kneeAlignmentPosterior, "L-R");
+            checkOne("Posterior", "ankleAlignmentPosterior", m.ankleAlignmentPosterior, "L-R");
+        }
+
+        let overallStatus = "Normal";
+        if (sigDevCount > 0) overallStatus = "Significant Deviation";
+        else if (devCount > 0) overallStatus = "Mild Deviation";
+
+        return { overallStatus, measurements };
+    }
+
     function generatePostureInterpretation(evaluation) {
         const { overallStatus, measurements } = evaluation;
         const deviations = measurements.filter(m => m.status !== "Normal");
@@ -327,6 +408,8 @@
             const pelvicDev = deviations.find(d => d.joint.includes("Pelvic Level"));
             const spinalDev = deviations.find(d => d.joint.includes("Spinal Alignment"));
             const kneeDev = deviations.find(d => d.joint.includes("Knee Alignment"));
+            const ankleDev = deviations.find(d => d.joint.includes("Ankle/Malleolar"));
+            const trunkSymDev = deviations.find(d => d.joint.includes("Trunk Symmetry"));
             const sagittalDev = deviations.find(d => d.joint.includes("Sagittal") && !d.joint.includes("Head Position"));
             const headTiltDev = deviations.find(d => d.joint.includes("Head Position (Ear Level"));
             const headForwardDev = deviations.find(d => d.joint.includes("Head Position (Forward Head"));
@@ -336,9 +419,11 @@
             if (headForwardDev) remarks.push(`Forward head posture of ${headForwardDev.angle}° was measured relative to the shoulder, a common finding associated with prolonged desk/screen posture and upper cervical strain.`);
             if (shoulderDev) remarks.push(`Shoulder height asymmetry (${shoulderDev.angle}°) was observed, which may reflect unilateral muscular tightness (e.g. upper trapezius) or scapular positioning imbalance.`);
             if (scapularDev) remarks.push(`Scapular asymmetry of ${scapularDev.angle}° was noted between the left and right inferior angles, suggesting possible scapular winging, dyskinesis, or unilateral periscapular weakness.`);
+            if (trunkSymDev) remarks.push(`Trunk symmetry deviates by ${trunkSymDev.angle}° between the shoulder and hip midline reference points, suggesting a lateral trunk lean or compensatory postural shift.`);
             if (pelvicDev) remarks.push(`Pelvic obliquity (${pelvicDev.angle}°) was detected, suggesting possible leg-length discrepancy, hip abductor weakness, or lateral pelvic tilt.`);
             if (spinalDev) remarks.push(`Lateral spinal deviation of ${spinalDev.angle}° between the cervicothoracic junction and pelvis was noted, warranting screening for scoliosis or postural asymmetry.`);
             if (kneeDev) remarks.push(`Frontal-plane knee alignment deviates by ${kneeDev.angle}°, consistent with possible genu valgum/varum or rotational compensation.`);
+            if (ankleDev) remarks.push(`Ankle/malleolar asymmetry of ${ankleDev.angle}° was observed between left and right malleolar reference points, which may indicate subtalar joint compensation, unilateral foot pronation/supination, or a lower-limb length discrepancy.`);
             if (sagittalDev) remarks.push(`Sagittal plane plumb-line deviation (${sagittalDev.angle}°) was identified between shoulder, hip, and knee reference points, suggesting anterior/posterior postural compensation (e.g. forward trunk lean, pelvic tilt, or knee hyperextension).`);
         }
 
@@ -373,6 +458,9 @@
         if (joints.some(j => j.includes("Scapular Symmetry"))) {
             recs.push("Periscapular strengthening (serratus anterior punches, rows, wall slides) to address scapular asymmetry/winging.");
         }
+        if (joints.some(j => j.includes("Trunk Symmetry"))) {
+            recs.push("Lateral core stabilization (side planks, oblique work) and postural mirror feedback to correct trunk lean/lateral shift.");
+        }
         if (joints.some(j => j.includes("Pelvic Level"))) {
             recs.push("Hip abductor/adductor strengthening (side-lying leg raises, clamshells) and assess for leg-length discrepancy.");
         }
@@ -382,12 +470,15 @@
         if (joints.some(j => j.includes("Knee Alignment"))) {
             recs.push("Hip and knee stabilization exercises (glute medius strengthening, single-leg squats with alignment cueing) to correct frontal-plane knee tracking.");
         }
+        if (joints.some(j => j.includes("Ankle/Malleolar"))) {
+            recs.push("Foot/ankle alignment drills (short-foot exercises, single-leg balance work) and orthotic/footwear assessment for asymmetric pronation or leg-length discrepancy.");
+        }
         if (joints.some(j => j.includes("Sagittal"))) {
             recs.push("Postural retraining (chin tucks, thoracic extension, hip flexor stretching) to correct sagittal-plane trunk/pelvis alignment.");
         }
         recs.push("Re-assess all four views after 4-6 weeks of corrective intervention to track progress objectively.");
 
-        return recs.slice(0, 5);
+        return recs.slice(0, 7);
     }
 
     const PF_Pose = {
@@ -701,6 +792,8 @@
         analyzeRightLateralView: analyzeRightLateralView,
         analyzeLeftLateralView: analyzeLeftLateralView,
         evaluateFullBodyPosture: evaluateFullBodyPosture,
+        // --- BPT1 (Module 1): Posterior/Right Lateral/Left Lateral static evaluator ---
+        evaluateModule1StaticViews: evaluateModule1StaticViews,
         generatePostureInterpretation: generatePostureInterpretation,
         generatePostureRecommendations: generatePostureRecommendations
     };
