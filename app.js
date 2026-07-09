@@ -679,9 +679,9 @@ function DashboardView({
 // captures added to the report images, same pattern as BPT2's 4-view scan).
 const BPT1_VIEW_CONFIG = [
     { key: "anterior", label: "Anterior View (Squat Depth)", instructions: "Face the camera directly at the lowest point of the squat." },
-    { key: "posterior", label: "Posterior View (Squat Depth)", instructions: "Turn so your back faces the camera and repeat the squat to the same depth." },
-    { key: "rightLateral", label: "Right Lateral View (Squat Depth)", instructions: "Show your right side profile to the camera and repeat the squat to the same depth." },
-    { key: "leftLateral", label: "Left Lateral View (Squat Depth)", instructions: "Show your left side profile to the camera and repeat the squat to the same depth." }
+    { key: "posterior", label: "Posterior View (Squat Depth)", analyzeFn: "analyzePosteriorView", instructions: "Turn so your back faces the camera and repeat the squat to the same depth." },
+    { key: "rightLateral", label: "Right Lateral View (Squat Depth)", analyzeFn: "analyzeRightLateralView", instructions: "Show your right side profile to the camera and repeat the squat to the same depth." },
+    { key: "leftLateral", label: "Left Lateral View (Squat Depth)", analyzeFn: "analyzeLeftLateralView", instructions: "Show your left side profile to the camera and repeat the squat to the same depth." }
 ];
 function BPT1Module({
     assessment,
@@ -704,29 +704,35 @@ function BPT1Module({
     const [saving, setSaving] = useState(false);
     const [isFrontCamera, setIsFrontCamera] = useState(true);
     const [multiViewIndex, setMultiViewIndex] = useState(0); // index into BPT1_VIEW_CONFIG for step 3 (starts at 1: posterior)
-    const [capturedViews, setCapturedViews] = useState({}); // { anterior: base64, posterior: base64, rightLateral: base64, leftLateral: base64 }
+    const [multiViewMetrics, setMultiViewMetrics] = useState(null); // live neck/shoulder/knee metrics for the active step-3 view
+    const [capturedViews, setCapturedViews] = useState({}); // { anterior: base64, posterior: {image,analysis,label}, rightLateral: {...}, leftLateral: {...} }
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const poseRef = useRef(null);
     const cameraRef = useRef(null);
     const frozenFrameRef = useRef(null); // stores captured image data URL
     const finalRecordRef = useRef(null); // holds finalAssessment/interpretation/recommendations from the anterior capture
+    const multiViewIndexRef = useRef(0); // mirrors multiViewIndex for use inside the pose onResults closure
+    const multiViewAnalysisRef = useRef(null); // holds the latest live analysis result for the active step-3 view
+    useEffect(() => {
+        multiViewIndexRef.current = multiViewIndex;
+    }, [multiViewIndex]);
     // Start video on mount
     useEffect(() => {
         if (step === 2) {
             startCamera();
         } else if (step === 3) {
-            startPlainCamera();
+            startMultiViewCamera();
         } else {
             stopCamera();
         }
         return () => stopCamera();
     }, [step]);
-    // Lightweight camera feed for the additional-view captures (step 3): no live
-    // biomechanical overlay is drawn here, just a mirrored preview + frame-presence
-    // check via the same pose module, so the assessor can position the patient
-    // before freezing each of the 3 remaining static views.
-    const startPlainCamera = async () => {
+    // Live camera feed for the additional-view captures (step 3): runs the same
+    // view-specific biomechanical analysis used by BPT2 (Posterior / Right Lateral /
+    // Left Lateral), drawing the joint/angle overlay ("grid view") and analyzing
+    // neck, shoulder, and knee alignment for each view -- not just the Anterior view.
+    const startMultiViewCamera = async () => {
         setVideoActive(true);
         setOutOfFrame(true);
         setTimeout(async () => {
@@ -752,12 +758,28 @@ function BPT1Module({
                 canvasCtx.scale(-1, 1);
                 canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
                 canvasCtx.restore();
-                if (results.poseLandmarks) {
-                    const analysis = window.PF_Pose.analyzeLandmarks(results.poseLandmarks);
-                    setTrackingConfidence(analysis.confidence);
-                    setOutOfFrame(analysis.outOfFrame);
+
+                const activeConfig = BPT1_VIEW_CONFIG[multiViewIndexRef.current];
+                if (results.poseLandmarks && activeConfig && activeConfig.analyzeFn) {
+                    const result = window.PF_Pose[activeConfig.analyzeFn](results.poseLandmarks);
+                    setTrackingConfidence(result.confidence || 0);
+                    setOutOfFrame(!!result.outOfFrame);
+                    if (!result.outOfFrame) {
+                        setMultiViewMetrics(result.metrics);
+                        multiViewAnalysisRef.current = result;
+                        // Module 1 (BPT1)-specific overlay: Posterior view draws a
+                        // trunk-alignment line (parallel to the spine) with a neck
+                        // point instead of the head/ear line. Module 2 (BPT2) is
+                        // untouched and still uses drawBPT2ViewOverlay below.
+                        drawBPT1ViewOverlay(canvasCtx, activeConfig.key, result.points);
+                    } else {
+                        multiViewAnalysisRef.current = null;
+                        setMultiViewMetrics(null);
+                    }
                 } else {
                     setOutOfFrame(true);
+                    multiViewAnalysisRef.current = null;
+                    setMultiViewMetrics(null);
                 }
             });
             poseRef.current = poseInstance;
@@ -931,6 +953,30 @@ function BPT1Module({
             ctx.strokeText(text, px, py);
             ctx.fillText(text, px, py);
         };
+        // Clinical-style "measurement reticle": a crosshair + ring marker used on
+        // the toe/foot-index landmarks to visually flag them as precision
+        // measurement points (distinct from the plain joint-circle markers),
+        // giving the foot-alignment readout a more professional instrument look.
+        const drawMeasurementReticle = (lm, color) => {
+            const x = 640 - lm.x * 640;
+            const y = lm.y * 480;
+            const r = 9;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, 2 * Math.PI);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x - r - 6, y); ctx.lineTo(x - r + 3, y);
+            ctx.moveTo(x + r - 3, y); ctx.lineTo(x + r + 6, y);
+            ctx.moveTo(x, y - r - 6); ctx.lineTo(x, y - r + 3);
+            ctx.moveTo(x, y + r - 3); ctx.lineTo(x, y + r + 6);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(x, y, 2.5, 0, 2 * Math.PI);
+            ctx.fillStyle = color;
+            ctx.fill();
+        };
         const lShoulder = landmarks[11];
         const rShoulder = landmarks[12];
         const lHip = landmarks[23];
@@ -939,6 +985,8 @@ function BPT1Module({
         const rKnee = landmarks[26];
         const lAnkle = landmarks[27];
         const rAnkle = landmarks[28];
+        const lFoot = landmarks[31];
+        const rFoot = landmarks[32];
         const angles = analysis.angles;
         const colorNormal = "#10b981"; // Emerald
         const colorDev = "#ef4444"; // Red
@@ -966,13 +1014,50 @@ function BPT1Module({
         drawJointCircle(rKnee, rKneeColor);
         drawJointCircle(lHip, "white");
         drawJointCircle(rHip, "white");
-        drawJointCircle(lAnkle, "white");
-        drawJointCircle(rAnkle, "white");
+
+        // Shared grid-alignment palette (kept consistent with the Module 1
+        // static-view overlays for Posterior/Right Lateral/Left Lateral)
+        const ANKLE_COLOR = "#facc15"; // yellow
+        const HAND_COLOR = "#a78bfa";  // violet
+
+        // 2a. Ankle grid-alignment: reticle marker (instead of a plain dot) so
+        // the ankle reads as a precision measurement point like the toe below.
+        drawMeasurementReticle(lAnkle, ANKLE_COLOR);
+        drawMeasurementReticle(rAnkle, ANKLE_COLOR);
+
+        // 2b. Foot/toe alignment grid: ankle -> toe segment, color-coded against
+        // the Ankle Alignment reference range (50°-70° dorsiflexion), with a
+        // measurement-reticle marker at each toe landmark.
+        const lAnkleColor = angles.leftAnkle >= 50 && angles.leftAnkle <= 70 ? colorNormal : colorDev;
+        const rAnkleColor = angles.rightAnkle >= 50 && angles.rightAnkle <= 70 ? colorNormal : colorDev;
+        if (lFoot) {
+            drawBoneLine(lAnkle, lFoot, lAnkleColor, 2.5);
+            drawMeasurementReticle(lFoot, lAnkleColor);
+        }
+        if (rFoot) {
+            drawBoneLine(rAnkle, rFoot, rAnkleColor, 2.5);
+            drawMeasurementReticle(rFoot, rAnkleColor);
+        }
+
+        // 2c. Hand/wrist joint grid-alignment: shoulder -> wrist reference line
+        // with a reticle marker at each wrist.
+        const lWrist = landmarks[15];
+        const rWrist = landmarks[16];
+        if (lWrist) {
+            drawBoneLine(lShoulder, lWrist, HAND_COLOR, 2.5);
+            drawMeasurementReticle(lWrist, HAND_COLOR);
+        }
+        if (rWrist) {
+            drawBoneLine(rShoulder, rWrist, HAND_COLOR, 2.5);
+            drawMeasurementReticle(rWrist, HAND_COLOR);
+        }
         // 3. Draw text overlays
         drawAngleLabel(lKnee, `${Math.round(angles.leftKnee)}°`, lKneeColor);
         drawAngleLabel(rKnee, `${Math.round(angles.rightKnee)}°`, rKneeColor);
         drawAngleLabel(lHip, `${Math.round(angles.leftHip)}°`, "white");
         drawAngleLabel(rHip, `${Math.round(angles.rightHip)}°`, "white");
+        if (lFoot) drawAngleLabel(lFoot, `${Math.round(angles.leftAnkle)}°`, lAnkleColor);
+        if (rFoot) drawAngleLabel(rFoot, `${Math.round(angles.rightAnkle)}°`, rAnkleColor);
 
         // Trunk Angle label next to shoulders
         drawAngleLabel(lShoulder, `Trunk: ${Math.round(angles.avgTrunk)}°`, "white");
@@ -1007,15 +1092,20 @@ function BPT1Module({
         const canvasElement = canvasRef.current;
         const activeConfig = BPT1_VIEW_CONFIG[multiViewIndex];
         if (!canvasElement || !activeConfig) return;
-        if (outOfFrame) {
+        if (outOfFrame || !multiViewAnalysisRef.current) {
             alert("Patient not clearly detected. Please ensure the full body is visible before capturing this view.");
             return;
         }
         const dataUrl = canvasElement.toDataURL('image/png');
-        const updated = { ...capturedViews, [activeConfig.key]: dataUrl };
+        const updated = {
+            ...capturedViews,
+            [activeConfig.key]: { image: dataUrl, analysis: multiViewAnalysisRef.current, label: activeConfig.label }
+        };
         setCapturedViews(updated);
 
         if (multiViewIndex < BPT1_VIEW_CONFIG.length - 1) {
+            multiViewAnalysisRef.current = null;
+            setMultiViewMetrics(null);
             setOutOfFrame(true);
             setMultiViewIndex(multiViewIndex + 1);
         } else {
@@ -1032,6 +1122,33 @@ function BPT1Module({
             interpretationText: window.PF_Pose.generateInterpretation(assessmentRecord, squatState),
             recommendationsText: window.PF_Pose.generateRecommendations(assessmentRecord)
         };
+
+        // Analyze the Posterior/Right Lateral/Left Lateral captures (neck, shoulder,
+        // trunk, hip, knee, and ankle/malleolar alignment) using the Module 1-specific
+        // evaluator, which orders views as Right Lateral, Left Lateral, then Posterior
+        // (Anterior/squat measurements above already cover the Anterior position),
+        // and orders joints within each view as Neck, Shoulder, Trunk, Hip, Knee, Ankle.
+        const staticEval = window.PF_Pose.evaluateModule1StaticViews({
+            posterior: allViews.posterior?.analysis,
+            rightLateral: allViews.rightLateral?.analysis,
+            leftLateral: allViews.leftLateral?.analysis
+        });
+
+        const combinedMeasurements = [...(finalAssessment.measurements || []), ...staticEval.measurements];
+        const sigCount = combinedMeasurements.filter(m => m.status === "Significant Deviation").length;
+        const mildCount = combinedMeasurements.filter(m => m.status === "Mild Deviation").length;
+        const combinedStatus = sigCount > 0 ? "Significant Deviation" : mildCount > 0 ? "Mild Deviation" : "Normal";
+
+        const combinedInterpretation = staticEval.measurements.length > 0
+            ? `${interpretationText} ${window.PF_Pose.generatePostureInterpretation(staticEval)}`
+            : interpretationText;
+
+        // Merge recommendation lists, de-duplicated, capped to a reasonable length
+        const mergedRecs = [...recommendationsText, ...(staticEval.measurements.length > 0 ? window.PF_Pose.generatePostureRecommendations(staticEval) : [])];
+        const combinedRecommendations = [...new Set(mergedRecs)].slice(0, 6);
+
+        const imageOf = v => (typeof v === "string" ? v : v?.image) || null;
+
         setReportPreviewData({
             patient: {
                 id: assessment.patient.id,
@@ -1045,17 +1162,17 @@ function BPT1Module({
             session: {
                 date: new Date().toLocaleDateString(),
                 module: "BPT1",
-                risk_level: finalAssessment.overallStatus || "Normal",
+                risk_level: combinedStatus,
                 notes: assessment.notes
             },
-            measurements: finalAssessment.measurements || [],
-            image_base64: allViews.anterior || frozenFrameRef.current,
+            measurements: combinedMeasurements,
+            image_base64: imageOf(allViews.anterior) || frozenFrameRef.current,
             images: BPT1_VIEW_CONFIG.map(v => ({
                 label: v.label,
-                base64: allViews[v.key] || null
+                base64: imageOf(allViews[v.key])
             })).filter(i => i.base64),
-            interpretation: interpretationText,
-            recommendations: recommendationsText
+            interpretation: combinedInterpretation,
+            recommendations: combinedRecommendations
         });
         setStep(4); // Go to preview
     };
@@ -1246,6 +1363,11 @@ function BPT1Module({
         val: liveAngles.leftAnkle,
         refRange: "50° - 70°",
         status: assessmentRecord?.measurements?.find(m => m.joint === "Ankle Alignment" && m.side === "Left")?.status || "Normal"
+    }), /*#__PURE__*/React.createElement(AngleRow, {
+        label: "Right Ankle",
+        val: liveAngles.rightAnkle,
+        refRange: "50° - 70°",
+        status: assessmentRecord?.measurements?.find(m => m.joint === "Ankle Alignment" && m.side === "Right")?.status || "Normal"
     }))))), step === 3 && /*#__PURE__*/React.createElement("div", {
         className: "analysis-layout"
     }, /*#__PURE__*/React.createElement("div", {
@@ -1310,9 +1432,19 @@ function BPT1Module({
         style: { background: "rgba(139, 92, 246, 0.15)", color: "var(--text-purple)" }
     }, "Module: BPT1")), /*#__PURE__*/React.createElement("p", {
         style: { color: "var(--text-muted)", fontSize: 13, marginBottom: 12 }
-    }, "Tracking Confidence: ", Math.round(trackingConfidence * 100), "%"), /*#__PURE__*/React.createElement("p", {
+    }, "Tracking Confidence: ", Math.round(trackingConfidence * 100), "%"), (multiViewMetrics ? Object.entries(multiViewMetrics) : []).length > 0 ? /*#__PURE__*/React.createElement("div", {
+        style: { display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }
+    }, Object.entries(multiViewMetrics).map(([key, val]) => /*#__PURE__*/React.createElement(AngleRow, {
+        key: key,
+        label: key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase()),
+        val: val,
+        refRange: "≤ 2°-8°",
+        status: val > 8 ? "Significant Deviation" : val > 2 ? "Mild Deviation" : "Normal"
+    }))) : /*#__PURE__*/React.createElement("p", {
+        style: { color: "var(--text-muted)", fontSize: 13, marginBottom: 12 }
+    }, "Align the patient in frame to begin live neck, shoulder, and knee tracking for this view."), /*#__PURE__*/React.createElement("p", {
         style: { color: "var(--text-muted)", fontSize: 13 }
-    }, "Anterior-view squat measurements are already captured. These additional views are added to the report for visual documentation and are optional -- use \"Skip Remaining Views\" at any point to finish with fewer than 4 images.")))), step === 4 && reportPreviewData && /*#__PURE__*/React.createElement("div", {
+    }, "Anterior-view squat measurements are already captured. Each additional view is live-tracked and analyzed (neck, shoulder, knee alignment) and added to the report -- use \"Skip Remaining Views\" at any point to finish with fewer than 4 images.")))), step === 4 && reportPreviewData && /*#__PURE__*/React.createElement("div", {
         className: "animate-fade-in",
         style: {
             display: "flex",
@@ -1701,6 +1833,116 @@ function BPT2Module({
         reportData: reportPreviewData
     })));
 }
+// Draws simplified reference points/lines relevant to the currently active view,
+// for Module 1 (BPT1) ONLY. This intentionally diverges from drawBPT2ViewOverlay
+// (used by Module 2 / BPT2, which is left completely unchanged) for the Posterior
+// view: instead of an ear-to-ear "head" line/dots, it draws a trunk-alignment line
+// (shoulder midpoint -> hip midpoint) parallel to the spine, and keeps the C7 point
+// as the "neck" reference instead of the ears.
+function drawBPT1ViewOverlay(ctx, viewKey, points) {
+    if (!points) return;
+    const mx = p => 640 - p.x * 640;
+    const my = p => p.y * 480;
+    const dot = (p, color) => {
+        if (!p) return;
+        ctx.beginPath();
+        ctx.arc(mx(p), my(p), 7, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    };
+    const line = (p1, p2, color) => {
+        if (!p1 || !p2) return;
+        ctx.beginPath();
+        ctx.moveTo(mx(p1), my(p1));
+        ctx.lineTo(mx(p2), my(p2));
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+    };
+    // Clinical-style "measurement reticle" (ring + crosshair ticks + center dot),
+    // used to flag ankle/toe/hand joints as precision grid-alignment points --
+    // matching the reticle used on the live squat-camera view.
+    const reticle = (p, color) => {
+        if (!p) return;
+        const x = mx(p), y = my(p);
+        const r = 9;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x - r - 6, y); ctx.lineTo(x - r + 3, y);
+        ctx.moveTo(x + r - 3, y); ctx.lineTo(x + r + 6, y);
+        ctx.moveTo(x, y - r - 6); ctx.lineTo(x, y - r + 3);
+        ctx.moveTo(x, y + r - 3); ctx.lineTo(x, y + r + 6);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x, y, 2.5, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.fill();
+    };
+    // Shared grid-alignment palette
+    const ANKLE_COLOR = "#facc15";  // yellow
+    const TOE_COLOR = "#38bdf8";    // sky blue
+    const HAND_COLOR = "#a78bfa";   // violet
+
+    if (viewKey === "anterior") {
+        line(points.earL, points.earR, "#fb923c");
+        line(points.acromionL, points.acromionR, "rgba(99,102,241,0.9)");
+        line(points.asisL, points.asisR, "rgba(236,72,153,0.9)");
+        line(points.kneeL, points.kneeR, "rgba(16,185,129,0.9)");
+        dot(points.earL, "#fb923c"); dot(points.earR, "#fb923c");
+        dot(points.acromionL, "white"); dot(points.acromionR, "white");
+        dot(points.asisL, "white"); dot(points.asisR, "white");
+        dot(points.kneeL, "white"); dot(points.kneeR, "white");
+        dot(points.sternum, "#fbbf24"); dot(points.umbilicus, "#fbbf24"); dot(points.patellaeCenter, "#fbbf24");
+    } else if (viewKey === "posterior") {
+        // No head/ear line or dots here (Module 1 only) -- replaced with a
+        // trunk-alignment line running parallel to the backbone (shoulder
+        // midpoint to hip midpoint), plus the C7 "neck" reference point.
+        line(points.acromionL, points.acromionR, "rgba(99,102,241,0.9)");
+        line(points.scapulaInferiorL, points.scapulaInferiorR, "#60a5fa");
+        line(points.shoulderMid, points.hipMid, "#f472b6");
+        line(points.psisL, points.psisR, "rgba(236,72,153,0.9)");
+        line(points.kneeL, points.kneeR, "rgba(16,185,129,0.9)");
+        // Ankle grid-alignment (yellow) with reticle markers
+        line(points.ankleL, points.ankleR, ANKLE_COLOR);
+        reticle(points.ankleL, ANKLE_COLOR); reticle(points.ankleR, ANKLE_COLOR);
+        // Toe alignment: ankle -> toe segment, with reticle markers at the toes
+        line(points.ankleL, points.footL, TOE_COLOR);
+        line(points.ankleR, points.footR, TOE_COLOR);
+        reticle(points.footL, TOE_COLOR); reticle(points.footR, TOE_COLOR);
+        // Hand/wrist joints: shoulder -> wrist reference, with reticle markers
+        line(points.acromionL, points.handL, HAND_COLOR);
+        line(points.acromionR, points.handR, HAND_COLOR);
+        reticle(points.handL, HAND_COLOR); reticle(points.handR, HAND_COLOR);
+        dot(points.acromionL, "white"); dot(points.acromionR, "white");
+        dot(points.psisL, "white"); dot(points.psisR, "white");
+        dot(points.kneeL, "white"); dot(points.kneeR, "white");
+        dot(points.c7, "#fbbf24"); // neck point
+        dot(points.scapulaInferiorL, "#60a5fa"); dot(points.scapulaInferiorR, "#60a5fa");
+    } else if (viewKey === "rightLateral" || viewKey === "leftLateral") {
+        const p2 = points.condyle || points.epicondyle;
+        line(points.headRef, points.acromion, "#fb923c");
+        line(points.acromion, points.trochanter, "rgba(99,102,241,0.9)");
+        line(points.trochanter, p2, "rgba(16,185,129,0.9)");
+        dot(points.headRef, "#fb923c");
+        dot(points.acromion, "white"); dot(points.trochanter, "white"); dot(p2, "white");
+        // Ankle grid-alignment: knee -> ankle segment, with reticle marker
+        line(p2, points.ankle, ANKLE_COLOR);
+        reticle(points.ankle, ANKLE_COLOR);
+        // Toe alignment: ankle -> toe segment, with reticle marker
+        line(points.ankle, points.foot, TOE_COLOR);
+        reticle(points.foot, TOE_COLOR);
+        // Hand/wrist joint: shoulder -> wrist reference, with reticle marker
+        line(points.acromion, points.hand, HAND_COLOR);
+        reticle(points.hand, HAND_COLOR);
+    }
+}
 // Draws simplified reference points/lines relevant to the currently active BPT2 view
 function drawBPT2ViewOverlay(ctx, viewKey, points) {
     if (!points) return;
@@ -1742,10 +1984,12 @@ function drawBPT2ViewOverlay(ctx, viewKey, points) {
         line(points.scapulaInferiorL, points.scapulaInferiorR, "#60a5fa");
         line(points.psisL, points.psisR, "rgba(236,72,153,0.9)");
         line(points.kneeL, points.kneeR, "rgba(16,185,129,0.9)");
+        line(points.ankleL, points.ankleR, "rgba(250,204,21,0.9)");
         dot(points.earL, "#fb923c"); dot(points.earR, "#fb923c");
         dot(points.acromionL, "white"); dot(points.acromionR, "white");
         dot(points.psisL, "white"); dot(points.psisR, "white");
         dot(points.kneeL, "white"); dot(points.kneeR, "white");
+        dot(points.ankleL, "white"); dot(points.ankleR, "white");
         dot(points.c7, "#fbbf24");
         dot(points.scapulaInferiorL, "#60a5fa"); dot(points.scapulaInferiorR, "#60a5fa");
     } else if (viewKey === "rightLateral" || viewKey === "leftLateral") {
