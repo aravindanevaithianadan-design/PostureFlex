@@ -4,6 +4,14 @@ const {
     useEffect,
     useRef
 } = React;
+
+// Maps internal module codes (BPT1/BPT2) to their user-facing display labels.
+// Internal code values are left unchanged everywhere else (routing, storage,
+// conditional logic) -- only the text shown to the user is affected.
+function getModuleDisplayName(moduleCode) {
+    if (moduleCode === "BPT2") return "Posture Analysis";
+    return "Squat Analysis"; // default / BPT1
+}
 function App() {
     // Session Routing State
     const [currentRoute, setCurrentRoute] = useState("dashboard"); // login, dashboard, bpt1, bpt2, reports, settings
@@ -207,7 +215,10 @@ function Sidebar({
         className: "logo-icon"
     }, /*#__PURE__*/React.createElement("img", {
         src: "https://github.com/aravindanevaithianadan-design/PostureFlex/blob/main/physio%20login%20logo1.png?raw=true",
-        alt: "PostureFlex logo"
+        alt: "PostureFlex logo",
+        width: 48,
+        height: 48,
+        decoding: "async"
     })), /*#__PURE__*/React.createElement("div", {
         className: "logo-text"
     }, "PostureFlex")), /*#__PURE__*/React.createElement("ul", {
@@ -236,7 +247,7 @@ function Sidebar({
         strokeLinecap: "round",
         strokeLinejoin: "round",
         d: "M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-    })), "BPT1 (Live Camera)"), /*#__PURE__*/React.createElement("li", {
+    })), "SQUAT ANALYSIS (Live Camera)"), /*#__PURE__*/React.createElement("li", {
         className: `menu-item ${currentRoute === "bpt2" ? "active" : ""}`,
         onClick: () => onStartModule("bpt2")
     }, /*#__PURE__*/React.createElement("svg", {
@@ -248,7 +259,7 @@ function Sidebar({
         strokeLinecap: "round",
         strokeLinejoin: "round",
         d: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-    })), "BPT2 (4-View Posture Scan)"), /*#__PURE__*/React.createElement("li", {
+    })), "POSTURE ANALYSIS (4-View Posture Scan)"), /*#__PURE__*/React.createElement("li", {
         className: `menu-item ${currentRoute === "reports" ? "active" : ""}`,
         onClick: () => onNavigate("reports")
     }, /*#__PURE__*/React.createElement("svg", {
@@ -326,7 +337,10 @@ function TopHeader({
     }))), /*#__PURE__*/React.createElement("img", {
         src: "https://github.com/aravindanevaithianadan-design/PostureFlex/blob/main/IMG_20240503_090818-removebg-preview.png?raw=true",
         alt: "Sri Manakula Vinayagar Engineering College logo",
-        className: "header-logo"
+        className: "header-logo",
+        width: 74,
+        height: 74,
+        decoding: "async"
     }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", null, "Sri Manakula Vinayagar Engineering College"), /*#__PURE__*/React.createElement("p", null, "School of Physiotherapy"))), /*#__PURE__*/React.createElement("div", {
         className: "header-actions"
     }, /*#__PURE__*/React.createElement("div", {
@@ -388,7 +402,10 @@ function LoginPage({
         className: "login-logo"
     }, /*#__PURE__*/React.createElement("img", {
         src: "https://github.com/aravindanevaithianadan-design/PostureFlex/blob/main/physio%20login%20logo1.png?raw=true",
-        alt: "PostureFlex logo"
+        alt: "PostureFlex logo",
+        width: 96,
+        height: 96,
+        decoding: "async"
     })), /*#__PURE__*/React.createElement("h2", null, "PostureFlex"), /*#__PURE__*/React.createElement("p", null, "Clinical posture analysis & motion capture tool")), errorMsg && /*#__PURE__*/React.createElement("div", {
         style: {
             color: "var(--danger)",
@@ -439,11 +456,27 @@ function IntakeModal({
     const [gender, setGender] = useState("Male");
     const [patientId, setPatientId] = useState("");
     const [sessionType, setSessionType] = useState("Initial Assessment");
-    const [assessorName, setAssessorName] = useState("Faculty Dr. Nalla");
     const [notes, setNotes] = useState("");
-    // Generate a default patient ID on mount
+    // Generate a sequential patient ID on mount: DD (day) + MM (month) + NN (patient count for that day, resets daily)
     useEffect(() => {
-        setPatientId("PT-" + Math.floor(100000 + Math.random() * 900000));
+        (async () => {
+            const now = new Date();
+            const dd = String(now.getDate()).padStart(2, "0");
+            const mm = String(now.getMonth() + 1).padStart(2, "0");
+            const todayStr = now.toISOString().split("T")[0]; // YYYY-MM-DD, used to detect the current day
+            let seq = 1;
+            try {
+                const existingPatients = await window.PF_DB.getPatients();
+                const todaysPatients = (existingPatients || []).filter(p => {
+                    if (!p.created_at) return false;
+                    return p.created_at.split("T")[0] === todayStr;
+                });
+                seq = todaysPatients.length + 1;
+            } catch (e) {
+                seq = 1;
+            }
+            setPatientId(`${dd}${mm}${String(seq).padStart(2, "0")}`);
+        })();
     }, []);
     const handleSubmit = e => {
         e.preventDefault();
@@ -453,7 +486,6 @@ function IntakeModal({
             gender,
             patient_id: patientId,
             session_type: sessionType,
-            assessor_name: assessorName,
             notes
         });
     };
@@ -472,27 +504,13 @@ function IntakeModal({
     }, "X")), /*#__PURE__*/React.createElement("form", {
         onSubmit: handleSubmit
     }, /*#__PURE__*/React.createElement("div", {
-        style: {
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 16
-        }
-    }, /*#__PURE__*/React.createElement("div", {
         className: "form-group"
-    }, /*#__PURE__*/React.createElement("label", null, "Patient ID (Auto)"), /*#__PURE__*/React.createElement("input", {
+    }, /*#__PURE__*/React.createElement("label", null, "Patient ID (Auto-generated, editable)"), /*#__PURE__*/React.createElement("input", {
         type: "text",
         className: "form-control",
         value: patientId,
-        readOnly: true
+        onChange: e => setPatientId(e.target.value)
     })), /*#__PURE__*/React.createElement("div", {
-        className: "form-group"
-    }, /*#__PURE__*/React.createElement("label", null, "Assessor Name"), /*#__PURE__*/React.createElement("input", {
-        type: "text",
-        className: "form-control",
-        value: assessorName,
-        onChange: e => setAssessorName(e.target.value),
-        required: true
-    }))), /*#__PURE__*/React.createElement("div", {
         className: "form-group"
     }, /*#__PURE__*/React.createElement("label", null, "Patient Full Name"), /*#__PURE__*/React.createElement("input", {
         type: "text",
@@ -662,7 +680,7 @@ function DashboardView({
             background: "rgba(139, 92, 246, 0.15)",
             color: "var(--text-purple)"
         }
-    }, log.module_type)), /*#__PURE__*/React.createElement("td", null, log.session_type), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
+    }, getModuleDisplayName(log.module_type))), /*#__PURE__*/React.createElement("td", null, log.session_type), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
         className: `badge ${log.risk_level.includes("Significant") ? "badge-danger" : log.risk_level.includes("Mild") ? "badge-warning" : "badge-success"}`
     }, log.risk_level)), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
         className: "btn btn-secondary",
@@ -672,6 +690,32 @@ function DashboardView({
         },
         onClick: () => onViewReport(log)
     }, "View Report")))))))));
+}
+// Corrects a captured frame before it's frozen into a report image. The live
+// overlay <canvas> always bakes a horizontal mirror into its raw pixels (the
+// video is drawn selfie-style via a ctx-level flip, and overlay points are
+// manually mirrored to match -- see drawBPT1ViewOverlay/drawBPT2ViewOverlay
+// below). On screen, the `.mirrored` CSS class cancels that flip back out
+// for front cameras, and the "CORRECT POSTURE" badge text is pre-mirrored
+// specifically to cancel out that same CSS flip (see the note above
+// drawCorrectPostureBadge) -- but a still image never gets that CSS applied,
+// so a raw canvasElement.toDataURL() snapshot came out with the person
+// mirrored and the badge text backwards. Re-flipping the snapshot once more
+// here (only for the saved/report image, never the live view) undoes the
+// baked-in mirror: the photo ends up in its true, non-mirrored orientation
+// and the badge text reads correctly in the on-screen preview and exported PDF.
+function captureCorrectedFrame(sourceCanvas) {
+    if (!sourceCanvas) return null;
+    const w = sourceCanvas.width;
+    const h = sourceCanvas.height;
+    const offscreen = document.createElement('canvas');
+    offscreen.width = w;
+    offscreen.height = h;
+    const octx = offscreen.getContext('2d');
+    octx.translate(w, 0);
+    octx.scale(-1, 1);
+    octx.drawImage(sourceCanvas, 0, 0, w, h);
+    return offscreen.toDataURL('image/png');
 }
 // BPT1 Module View (Webcam live capture)
 // 4-side static capture config for Module 1 squat visual documentation (Anterior view
@@ -1092,6 +1136,12 @@ function BPT1Module({
         };
         drawTrunkLeanGuide(hipMid, shoulderMid);
 
+        // Squat-depth reference guide (hip/knee level) + "CORRECT POSTURE"
+        // badge -- present on Posterior/Lateral views and the BPT2 4-view
+        // scan, but previously missing here on the Anterior live-squat feed
+        // since this view uses its own overlay function.
+        drawSquatDepthGuide(ctx, hipMid.y * 480, (lKnee.y + rKnee.y) / 2 * 480);
+
         // 1. Draw Bones
         drawBoneLine(lShoulder, rShoulder, "rgba(255,255,255,0.5)");
         drawBoneLine(lHip, rHip, "rgba(255,255,255,0.5)");
@@ -1179,8 +1229,10 @@ function BPT1Module({
         const canvasElement = canvasRef.current;
         if (!canvasElement) return;
 
-        // Extract snapshot as DataURL
-        const dataUrl = canvasElement.toDataURL('image/png');
+        // Extract snapshot as DataURL (un-mirrored so the saved/report image
+        // shows true orientation and the CORRECT POSTURE badge, if visible,
+        // reads correctly instead of backwards)
+        const dataUrl = captureCorrectedFrame(canvasElement);
         frozenFrameRef.current = dataUrl;
 
         // Stop Camera feed
@@ -1215,7 +1267,7 @@ function BPT1Module({
             alert("Patient not clearly detected. Please ensure the full body is visible before capturing this view.");
             return;
         }
-        const dataUrl = canvasElement.toDataURL('image/png');
+        const dataUrl = captureCorrectedFrame(canvasElement);
         const updated = {
             ...capturedViews,
             [activeConfig.key]: { image: dataUrl, analysis: multiViewAnalysisRef.current, label: activeConfig.label }
@@ -1299,7 +1351,6 @@ function BPT1Module({
                 name: assessment.patient.name,
                 age: assessment.patient.age,
                 gender: assessment.patient.gender,
-                assessor: assessment.patient.assessor_name,
                 session_type: assessment.session_type
             },
             session: {
@@ -1584,7 +1635,7 @@ function BPT1Module({
     }, /*#__PURE__*/React.createElement("h3", null, "Patient: ", assessment.patient.name), /*#__PURE__*/React.createElement("span", {
         className: "badge badge-success",
         style: { background: "rgba(139, 92, 246, 0.15)", color: "var(--text-purple)" }
-    }, "Module: BPT1")), /*#__PURE__*/React.createElement("p", {
+    }, "Module Used : Squat Analysis")), /*#__PURE__*/React.createElement("p", {
         style: { color: "var(--text-muted)", fontSize: 13, marginBottom: 12 }
     }, "Tracking Confidence: ", Math.round(trackingConfidence * 100), "%"), (multiViewMetrics ? Object.entries(multiViewMetrics) : []).length > 0 ? /*#__PURE__*/React.createElement("div", {
         style: { display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }
@@ -1672,6 +1723,7 @@ function BPT2Module({
     const liveAnalysisRef = useRef(null);
     const lastUIUpdateRef = useRef(0);
     const UI_UPDATE_INTERVAL_MS = 120;
+
 
     useEffect(() => {
         viewIndexRef.current = viewIndex;
@@ -1799,7 +1851,7 @@ function BPT2Module({
             alert("Patient not clearly detected. Please ensure the full body is visible before capturing this view.");
             return;
         }
-        const dataUrl = canvasElement.toDataURL('image/png');
+        const dataUrl = captureCorrectedFrame(canvasElement);
         const capturedResult = liveAnalysisRef.current;
         const updated = {
             ...capturedViews,
@@ -1827,6 +1879,18 @@ function BPT2Module({
         const interpretationText = window.PF_Pose.generatePostureInterpretation(evaluation);
         const recommendationsText = window.PF_Pose.generatePostureRecommendations(evaluation);
 
+        // 4 separate view sections for the report, in the requested order:
+        // Anterior, Posterior, Lateral (Left), Lateral (Right). Same rows as
+        // evaluation.measurements (no measurement values changed) -- just
+        // grouped by view, same as Module 1's report layout, using the
+        // clinical parameter names now returned in each row's "joint" field.
+        const viewSections = [
+            { label: "Anterior View", rows: evaluation.viewSections?.anterior || [] },
+            { label: "Posterior View", rows: evaluation.viewSections?.posterior || [] },
+            { label: "Lateral View (Left)", rows: evaluation.viewSections?.leftLateral || [] },
+            { label: "Lateral View (Right)", rows: evaluation.viewSections?.rightLateral || [] }
+        ];
+
         setReportPreviewData({
             patient: {
                 id: assessment.patient.id,
@@ -1834,7 +1898,6 @@ function BPT2Module({
                 name: assessment.patient.name,
                 age: assessment.patient.age,
                 gender: assessment.patient.gender,
-                assessor: assessment.patient.assessor_name,
                 session_type: assessment.session_type
             },
             session: {
@@ -1844,6 +1907,7 @@ function BPT2Module({
                 notes: assessment.notes
             },
             measurements: evaluation.measurements,
+            viewSections: viewSections,
             images: BPT2_VIEW_CONFIG.map(v => ({
                 label: v.label,
                 base64: allViews[v.key] ? allViews[v.key].image : null
@@ -1966,7 +2030,7 @@ function BPT2Module({
     }, /*#__PURE__*/React.createElement("h3", null, "Patient: ", assessment.patient.name), /*#__PURE__*/React.createElement("span", {
         className: "badge badge-success",
         style: { background: "rgba(139, 92, 246, 0.15)", color: "var(--text-purple)" }
-    }, "Module: BPT2")), /*#__PURE__*/React.createElement("p", {
+    }, "Module Used : Posture Analysis")), /*#__PURE__*/React.createElement("p", {
         style: { color: "var(--text-muted)", fontSize: 13, marginBottom: 12 }
     }, "Tracking Confidence: ", Math.round(trackingConfidence * 100), "%"), metricEntries.length > 0 ? /*#__PURE__*/React.createElement("div", {
         style: { display: "flex", flexDirection: "column", gap: 8 }
@@ -2012,6 +2076,168 @@ function BPT2Module({
 // view: instead of an ear-to-ear "head" line/dots, it draws a trunk-alignment line
 // (shoulder midpoint -> hip midpoint) parallel to the spine, and keeps the C7 point
 // as the "neck" reference instead of the ears.
+// --- Squat-depth reference guide + "Correct Posture" notification -----------
+// Draws a horizontal green guide line at the hip/knee level (like the
+// clinical "Reference Line: Butt-Knee Level" chart) so the patient can
+// visually align their hips with their knees on camera, in EVERY view
+// (Anterior/Posterior/Right Lateral/Left Lateral). hipY/kneeY are each the
+// on-screen (canvas-space) y-coordinate of that view's hip and knee
+// reference -- a single point for the lateral views, the L/R average for the
+// front/back views. When the two are level (within a small on-screen
+// tolerance), a green "CORRECT POSTURE" badge appears at the top of the
+// frame. Purely a visual aid layered on top of the existing overlay -- it
+// never changes any tracked landmark, angle, or measurement.
+//
+// Shared by both drawBPT1ViewOverlay and drawBPT2ViewOverlay so the guide
+// line/badge behaves identically (and stays in sync) across the live squat
+// camera (Module 1) and the 4-view posture scan (Module 2).
+//
+// Note: the <canvas> this draws onto gets `transform: scaleX(-1)` applied
+// via the `.mirrored` CSS class for the selfie-view mirror effect. That flip
+// happens AFTER this code runs, so anything drawn here in normal
+// left-to-right text orientation ends up displayed backwards/inverted on
+// screen. The badge text is drawn inside a local horizontal-flip transform
+// (mirrored around its own box center) so it cancels out the outer CSS flip
+// and reads correctly to the patient.
+const ALIGN_TOLERANCE_PX = 16; // ~3% of the 480px-tall capture frame -- shared, exact measurement used by both Module 1 and Module 2 guides below
+// Shared "CORRECT POSTURE" badge, extracted out of the old inline version so
+// both the Module 1 squat-depth guide and the Module 2 spinal-alignment guide
+// render an identical badge. Counter-flips its own text (see note above) so
+// it isn't mirrored/backwards once the canvas's CSS scaleX(-1) is applied.
+function drawCorrectPostureBadge(ctx, boxY = 16) {
+    const label = "\u2713 CORRECT POSTURE";
+    ctx.save();
+    ctx.font = "bold 16px 'Outfit', sans-serif";
+    const textWidth = ctx.measureText(label).width;
+    const padX = 14;
+    const boxW = textWidth + padX * 2;
+    const boxH = 30;
+    const boxX = (640 - boxW) / 2;
+    ctx.fillStyle = "rgba(34, 197, 94, 0.92)";
+    if (ctx.roundRect) {
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxW, boxH, 8);
+        ctx.fill();
+    } else {
+        ctx.fillRect(boxX, boxY, boxW, boxH);
+    }
+    ctx.fillStyle = "#ffffff";
+    ctx.textBaseline = "middle";
+    const boxCenterX = boxX + boxW / 2;
+    ctx.translate(boxCenterX, 0);
+    ctx.scale(-1, 1);
+    ctx.translate(-boxCenterX, 0);
+    ctx.fillText(label, boxX + padX, boxY + boxH / 2);
+    ctx.restore();
+}
+function drawSquatDepthGuide(ctx, hipY, kneeY) {
+    if (hipY === undefined || kneeY === undefined) return;
+    const guideY = (hipY + kneeY) / 2;
+    ctx.save();
+    ctx.strokeStyle = "#22c55e";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, guideY);
+    ctx.lineTo(640, guideY);
+    ctx.stroke();
+    ctx.restore();
+
+    if (Math.abs(hipY - kneeY) <= ALIGN_TOLERANCE_PX) {
+        drawCorrectPostureBadge(ctx);
+    }
+}
+
+// --- Module 2 (BPT2): vertical "ideal spinal alignment" guide ---------------
+// Matches the clinical reference mock (head -> shoulder/chest -> waist/hip ->
+// knee[ -> ankle] plumb line with dot markers + a "CORRECT POSTURE" badge)
+// for the Anterior and Posterior posture-scan views only -- intentionally
+// NOT shown on Right Lateral / Left Lateral (removed on request). This is
+// Module-2-only -- Module 1's drawBPT1ViewOverlay/drawSquatDepthGuide is
+// untouched.
+//
+// The green line is LIVE-TRACKING, moving with the patient in real time --
+// the same way Module 1's hip/knee guide line moves every frame as the
+// squat progresses. It runs top-to-bottom through the patient's own tracked
+// midline landmarks (head -> knee/ankle), extended in a straight line to
+// both screen edges so it's always fully visible, and slides left/right on
+// screen as the patient shifts, letting them visually adjust their own
+// posture against it in real time. Dot markers sit at each tracked
+// landmark. The "CORRECT POSTURE" badge only appears once every landmark on
+// the chain lines up with the topmost one (i.e. the patient is standing
+// perfectly straight) -- SPINAL_ALIGNMENT_TOLERANCE_PX is intentionally
+// much tighter than Module 1's ALIGN_TOLERANCE_PX, so the slightest
+// deviation keeps the badge hidden.
+const SPINAL_ALIGNMENT_TOLERANCE_PX = 6; // near-perfect alignment only, Module 2 only
+function drawSpinalAlignmentGuide(ctx, viewKey, points) {
+    if (!points) return;
+    const mx = p => 640 - p.x * 640;
+    const my = p => p.y * 480;
+    const mid = (p1, p2) => (p1 && p2) ? { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 } : null;
+
+    let chain;
+    if (viewKey === "anterior") {
+        chain = [
+            mid(points.earL, points.earR),
+            mid(points.acromionL, points.acromionR),
+            points.sternum,
+            points.umbilicus,
+            mid(points.asisL, points.asisR),
+            mid(points.kneeL, points.kneeR)
+        ];
+    } else if (viewKey === "posterior") {
+        chain = [
+            mid(points.earL, points.earR),
+            mid(points.acromionL, points.acromionR),
+            points.c7,
+            mid(points.scapulaInferiorL, points.scapulaInferiorR),
+            mid(points.psisL, points.psisR),
+            mid(points.kneeL, points.kneeR),
+            mid(points.ankleL, points.ankleR)
+        ];
+    } else if (viewKey === "rightLateral" || viewKey === "leftLateral") {
+        // Green spinal-alignment line intentionally not shown for the
+        // Lateral views (Module 2 only) -- Anterior/Posterior keep it.
+        return;
+    } else {
+        return;
+    }
+    chain = chain.filter(Boolean);
+    if (chain.length < 2) return;
+
+    // Live-tracking plumb line: follows the patient's own topmost (head)
+    // and bottommost (knee/ankle) landmarks every frame, with straight
+    // extensions up to y=0 and down to y=480 so it always spans the full
+    // screen height no matter where the patient is standing.
+    const topPoint = { x: mx(chain[0]), y: 0 };
+    const bottomPoint = { x: mx(chain[chain.length - 1]), y: 480 };
+    ctx.save();
+    ctx.strokeStyle = "#22c55e";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(topPoint.x, topPoint.y);
+    chain.forEach(p => ctx.lineTo(mx(p), my(p)));
+    ctx.lineTo(bottomPoint.x, bottomPoint.y);
+    ctx.stroke();
+    ctx.restore();
+
+    // Dot marker at each tracked landmark along the line
+    chain.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(mx(p), my(p), 6, 0, 2 * Math.PI);
+        ctx.fillStyle = "#4ade80";
+        ctx.fill();
+    });
+
+    // Alignment check: how far (in on-screen px) each landmark drifts
+    // sideways from the topmost (head) point. Only pops the badge when the
+    // patient is essentially perfectly straight -- the slightest deviation
+    // keeps it hidden.
+    const topX = mx(chain[0]);
+    const maxDeviationPx = Math.max(...chain.map(p => Math.abs(mx(p) - topX)));
+    if (maxDeviationPx <= SPINAL_ALIGNMENT_TOLERANCE_PX) {
+        drawCorrectPostureBadge(ctx);
+    }
+}
 function drawBPT1ViewOverlay(ctx, viewKey, points) {
     if (!points) return;
     const mx = p => 640 - p.x * 640;
@@ -2063,7 +2289,25 @@ function drawBPT1ViewOverlay(ctx, viewKey, points) {
     const TOE_COLOR = "#38bdf8";    // sky blue
     const HAND_COLOR = "#a78bfa";   // violet
 
+    // --- Squat-depth reference guide + "Correct Posture" notification --------
+    // Draws a horizontal green guide line at the hip/knee level (like the
+    // clinical "Reference Line: Butt-Knee Level" chart) so the patient can
+    // visually align their hips with their knees on camera, in EVERY view
+    // (Anterior/Posterior/Right Lateral/Left Lateral). hipY/kneeY are each
+    // the on-screen (canvas-space) y-coordinate of that view's hip and knee
+    // reference -- a single point for the lateral views, the L/R average for
+    // the front/back views. When the two are level (within a small on-screen
+    // tolerance), a green "CORRECT POSTURE" badge appears at the top of the
+    // frame. Purely a visual aid layered on top of the existing overlay --
+    // it never changes any tracked landmark, angle, or measurement.
+    const drawDepthGuide = (hipY, kneeY) => drawSquatDepthGuide(ctx, hipY, kneeY);
+
     if (viewKey === "anterior") {
+        if (points.asisL && points.asisR && points.kneeL && points.kneeR) {
+            const hipY = (my(points.asisL) + my(points.asisR)) / 2;
+            const kneeY = (my(points.kneeL) + my(points.kneeR)) / 2;
+            drawDepthGuide(hipY, kneeY);
+        }
         line(points.earL, points.earR, "#fb923c");
         line(points.acromionL, points.acromionR, "rgba(99,102,241,0.9)");
         line(points.asisL, points.asisR, "rgba(236,72,153,0.9)");
@@ -2077,6 +2321,11 @@ function drawBPT1ViewOverlay(ctx, viewKey, points) {
         // No head/ear line or dots here (Module 1 only) -- replaced with a
         // trunk-alignment line running parallel to the backbone (shoulder
         // midpoint to hip midpoint), plus the C7 "neck" reference point.
+        if (points.psisL && points.psisR && points.kneeL && points.kneeR) {
+            const hipY = (my(points.psisL) + my(points.psisR)) / 2;
+            const kneeY = (my(points.kneeL) + my(points.kneeR)) / 2;
+            drawDepthGuide(hipY, kneeY);
+        }
         line(points.acromionL, points.acromionR, "rgba(99,102,241,0.9)");
         line(points.scapulaInferiorL, points.scapulaInferiorR, "#60a5fa");
         line(points.shoulderMid, points.hipMid, "#f472b6");
@@ -2100,6 +2349,16 @@ function drawBPT1ViewOverlay(ctx, viewKey, points) {
         dot(points.scapulaInferiorL, "#60a5fa"); dot(points.scapulaInferiorR, "#60a5fa");
     } else if (viewKey === "rightLateral" || viewKey === "leftLateral") {
         const p2 = points.condyle || points.epicondyle;
+        // --- Squat depth reference guide (lateral views) --------------------
+        // Horizontal green guide line spanning the frame at the hip/knee
+        // level, so the patient can visually align the butt joint (hip/
+        // trochanter) with the knee joint while squatting on camera --
+        // mirrors the clinical "Reference Line: Butt-Knee Level" chart.
+        // Purely a visual aid drawn first (underneath the joint dots/lines);
+        // it does not affect any tracked value or measurement.
+        if (points.trochanter && p2) {
+            drawDepthGuide(my(points.trochanter), my(p2));
+        }
         line(points.headRef, points.acromion, "#fb923c");
         line(points.acromion, points.trochanter, "rgba(99,102,241,0.9)");
         line(points.trochanter, p2, "rgba(16,185,129,0.9)");
@@ -2140,6 +2399,11 @@ function drawBPT2ViewOverlay(ctx, viewKey, points) {
         ctx.lineWidth = 3;
         ctx.stroke();
     };
+
+    // Vertical "ideal spinal alignment" guide (green line + dot markers +
+    // CORRECT POSTURE badge), matching the clinical reference mock, for all
+    // 4 posture-scan views.
+    drawSpinalAlignmentGuide(ctx, viewKey, points);
 
     if (viewKey === "anterior") {
         line(points.earL, points.earR, "#fb923c");
@@ -2183,7 +2447,6 @@ function buildReportDataFromLog(log) {
             name: log.patient_name,
             age: log.patient_age,
             gender: log.patient_gender,
-            assessor: log.assessor_name,
             session_type: log.session_type
         },
         session: {
@@ -2227,7 +2490,7 @@ function ReportsView({
         className: "table-container"
     }, /*#__PURE__*/React.createElement("table", {
         className: "custom-table"
-    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Patient Name"), /*#__PURE__*/React.createElement("th", null, "Patient ID"), /*#__PURE__*/React.createElement("th", null, "Date"), /*#__PURE__*/React.createElement("th", null, "Assessor"), /*#__PURE__*/React.createElement("th", null, "Module"), /*#__PURE__*/React.createElement("th", null, "Risk Level"), /*#__PURE__*/React.createElement("th", null, "Action"))), /*#__PURE__*/React.createElement("tbody", null, history.map((log, idx) => /*#__PURE__*/React.createElement("tr", {
+    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Patient Name"), /*#__PURE__*/React.createElement("th", null, "Patient ID"), /*#__PURE__*/React.createElement("th", null, "Date"), /*#__PURE__*/React.createElement("th", null, "Module"), /*#__PURE__*/React.createElement("th", null, "Overall Postural Profile"), /*#__PURE__*/React.createElement("th", null, "Action"))), /*#__PURE__*/React.createElement("tbody", null, history.map((log, idx) => /*#__PURE__*/React.createElement("tr", {
         key: idx
     }, /*#__PURE__*/React.createElement("td", {
         style: {
@@ -2238,7 +2501,7 @@ function ReportsView({
             color: "var(--text-purple)",
             fontFamily: "monospace"
         }
-    }, log.patient_id), /*#__PURE__*/React.createElement("td", null, log.date), /*#__PURE__*/React.createElement("td", null, log.assessor_name), /*#__PURE__*/React.createElement("td", null, log.module_type), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
+    }, log.patient_id), /*#__PURE__*/React.createElement("td", null, log.date), /*#__PURE__*/React.createElement("td", null, getModuleDisplayName(log.module_type)), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
         className: `badge ${log.risk_level.includes("Significant") ? "badge-danger" : log.risk_level.includes("Mild") ? "badge-warning" : "badge-success"}`
     }, log.risk_level)), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
         className: "btn btn-primary",
@@ -2477,11 +2740,11 @@ function ReportCanvasPreview({
         style: {
             fontWeight: 700
         }
-    }, session.module || "BPT1")), /*#__PURE__*/React.createElement("div", {
+    }, getModuleDisplayName(session.module))), /*#__PURE__*/React.createElement("div", {
         className: "report-meta-row"
     }, /*#__PURE__*/React.createElement("span", {
         className: "report-meta-label"
-    }, "Overall Alignment:"), /*#__PURE__*/React.createElement("span", {
+    }, "Overall Postural Profile:"), /*#__PURE__*/React.createElement("span", {
         className: `report-meta-val ${session.risk_level?.includes("Significant") ? "text-danger" : session.risk_level?.includes("Mild") ? "text-warning" : "text-success"}`,
         style: {
             fontWeight: 700
@@ -2520,7 +2783,7 @@ function ReportCanvasPreview({
         key: idx
     }, r))), /*#__PURE__*/React.createElement("div", {
         className: "report-footer"
-    }, /*#__PURE__*/React.createElement("span", null, "Generated by PostureFlex Station • Faculty Dr. Nalla Assessed"), /*#__PURE__*/React.createElement("span", null, "Assessor Signature: ____________________________"))));
+    }, /*#__PURE__*/React.createElement("span", null, "Generated by PostureFlex Station • "), /*#__PURE__*/React.createElement("span", null, "Assessor Signature: ____________________________"))));
 }
 // Mount the React Application
 const root = ReactDOM.createRoot(document.getElementById('root'));
