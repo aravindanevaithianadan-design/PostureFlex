@@ -740,6 +740,46 @@ h6 {
     box-shadow: 0 0 10px var(--primary-glow);
 }
 
+/* Password field: eye icon sits inside the input, right-aligned, to toggle
+   plain-text visibility so users can confirm what they typed before
+   submitting. */
+.password-field-wrap {
+    position: relative;
+}
+
+.password-field-wrap .form-control {
+    padding-right: 44px;
+}
+
+.password-toggle-btn {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.password-toggle-btn:hover {
+    color: var(--primary);
+    background: rgba(201, 103, 140, 0.1);
+}
+
+.password-toggle-btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+}
+
 /* Custom Table Style */
 .table-container {
     overflow-x: auto;
