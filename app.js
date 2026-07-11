@@ -676,14 +676,14 @@ function DashboardView({
         className: "module-card glass glass-hover"
     }, /*#__PURE__*/React.createElement("div", {
         className: "module-tag"
-    }, "MODULE 1"), /*#__PURE__*/React.createElement("h3", null, "BPT1 - Live Squat Camera"), /*#__PURE__*/React.createElement("p", null, "Execute real-time angle overlays, knee flexion deviations, ankle alignment checks, and pelvic tilt calculations continuously during active patient squats using a webcam."), /*#__PURE__*/React.createElement("button", {
+    }, "MODULE 1"), /*#__PURE__*/React.createElement("h3", null, "Live SQUAT SCAN"), /*#__PURE__*/React.createElement("p", null, "Execute real-time angle overlays, knee flexion deviations, ankle alignment checks, and pelvic tilt calculations continuously during active patient squats using a webcam."), /*#__PURE__*/React.createElement("button", {
         className: "btn btn-primary",
         onClick: onStartBPT1
     }, "Launch Camera Stream")), /*#__PURE__*/React.createElement("div", {
         className: "module-card glass glass-hover"
     }, /*#__PURE__*/React.createElement("div", {
         className: "module-tag"
-    }, "MODULE 2"), /*#__PURE__*/React.createElement("h3", null, "BPT2 - 4-View Live Posture Scan"), /*#__PURE__*/React.createElement("p", null, "Guided live-camera capture of Anterior, Posterior, Right Lateral, and Left Lateral standing views, analyzing shoulder/pelvic level, spinal alignment, knee alignment, and sagittal plumb-line posture at each key anatomical landmark."), /*#__PURE__*/React.createElement("button", {
+    }, "MODULE 2"), /*#__PURE__*/React.createElement("h3", null, " Live POSTURE SCAN"), /*#__PURE__*/React.createElement("p", null, "Guided live-camera capture of Anterior, Posterior, Right Lateral, and Left Lateral standing views, analyzing shoulder/pelvic level, spinal alignment, knee alignment, and sagittal plumb-line posture at each key anatomical landmark."), /*#__PURE__*/React.createElement("button", {
         className: "btn btn-primary",
         onClick: onStartBPT2
     }, "Launch 4-View Scan"))), /*#__PURE__*/React.createElement("div", {
