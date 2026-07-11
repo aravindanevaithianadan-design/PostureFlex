@@ -229,53 +229,66 @@
             }
         }
 
-        // 4. Biomechanical Measurements Table
-        if (currentY > PAGE_H - 150) {
-            doc.addPage();
-            currentY = 40;
-        }
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.setTextColor(79, 70, 229);
-        doc.text("Biomechanical Measurements", MARGIN, currentY);
+        // 4. Biomechanical Measurements -- rendered as 4 separate per-view
+        // tables (Anterior / Posterior / Lateral Left / Lateral Right) when
+        // viewSections is supplied (Module 1 / BPT1). Falls back to a single
+        // combined table when it isn't (Module 2 / BPT2, unchanged).
+        const viewSections = (data.viewSections || []).filter(s => s.rows && s.rows.length > 0);
 
-        const tableBody = measurements.map(m => [
-            m.joint,
-            m.side,
-            `${m.angle}°`,
-            `${m.reference}`,
-            `${m.deviation}°`,
-            m.status
-        ]);
+        const drawMeasurementsTable = (rows, heading) => {
+            if (currentY > PAGE_H - 150) {
+                doc.addPage();
+                currentY = 40;
+            }
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(11);
+            doc.setTextColor(79, 70, 229);
+            doc.text(heading, MARGIN, currentY);
 
-        doc.autoTable({
-            startY: currentY + 8,
-            head: [['Joint Parameter', 'Side', 'Measured Angle', 'Reference Range', 'Deviation', 'Status']],
-            body: tableBody,
-            theme: 'striped',
-            styles: { cellPadding: 5, fontSize: 8.5, textColor: [31, 41, 55] },
-            headStyles: { fillColor: [109, 40, 217], fontSize: 9, fontStyle: 'bold', textColor: [255, 255, 255] },
-            alternateRowStyles: { fillColor: [249, 250, 251] },
-            margin: { left: MARGIN, right: MARGIN },
-            tableWidth: CONTENT_W,
-            didParseCell: function (cellData) {
-                if (cellData.section === 'body' && cellData.column.index === 5) {
-                    const status = cellData.cell.raw || "";
-                    if (status.includes('Significant')) {
-                        cellData.cell.styles.textColor = [220, 38, 38];
-                        cellData.cell.styles.fontStyle = 'bold';
-                    } else if (status.includes('Mild')) {
-                        cellData.cell.styles.textColor = [217, 119, 6];
-                        cellData.cell.styles.fontStyle = 'bold';
-                    } else {
-                        cellData.cell.styles.textColor = [5, 150, 105];
-                        cellData.cell.styles.fontStyle = 'bold';
+            const tableBody = rows.map(m => [
+                m.joint,
+                m.side,
+                `${m.fixed || m.reference}`,
+                `${m.angle}°`,
+                `${m.deviation}°`,
+                m.status
+            ]);
+
+            doc.autoTable({
+                startY: currentY + 8,
+                head: [['Joint Parameter', 'Side', 'Fixed / Normal Angle', 'Measured Angle', 'Deviation', 'Status']],
+                body: tableBody,
+                theme: 'striped',
+                styles: { cellPadding: 5, fontSize: 8.5, textColor: [31, 41, 55] },
+                headStyles: { fillColor: [109, 40, 217], fontSize: 9, fontStyle: 'bold', textColor: [255, 255, 255] },
+                alternateRowStyles: { fillColor: [249, 250, 251] },
+                margin: { left: MARGIN, right: MARGIN },
+                tableWidth: CONTENT_W,
+                didParseCell: function (cellData) {
+                    if (cellData.section === 'body' && cellData.column.index === 5) {
+                        const status = cellData.cell.raw || "";
+                        if (status.includes('Significant')) {
+                            cellData.cell.styles.textColor = [220, 38, 38];
+                            cellData.cell.styles.fontStyle = 'bold';
+                        } else if (status.includes('Mild')) {
+                            cellData.cell.styles.textColor = [217, 119, 6];
+                            cellData.cell.styles.fontStyle = 'bold';
+                        } else {
+                            cellData.cell.styles.textColor = [5, 150, 105];
+                            cellData.cell.styles.fontStyle = 'bold';
+                        }
                     }
                 }
-            }
-        });
+            });
 
-        currentY = doc.lastAutoTable.finalY + 20;
+            currentY = doc.lastAutoTable.finalY + 20;
+        };
+
+        if (viewSections.length > 0) {
+            viewSections.forEach(section => drawMeasurementsTable(section.rows, section.label));
+        } else {
+            drawMeasurementsTable(measurements, "Biomechanical Measurements");
+        }
 
         // If Y is too close to bottom, add a new page
         if (currentY > BOTTOM_LIMIT) {
