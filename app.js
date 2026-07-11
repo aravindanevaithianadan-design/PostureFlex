@@ -714,6 +714,16 @@ function BPT1Module({
     const finalRecordRef = useRef(null); // holds finalAssessment/interpretation/recommendations from the anterior capture
     const multiViewIndexRef = useRef(0); // mirrors multiViewIndex for use inside the pose onResults closure
     const multiViewAnalysisRef = useRef(null); // holds the latest live analysis result for the active step-3 view
+    const latestLandmarksRef = useRef(null); // holds the most recent raw pose landmarks from the Module 1 squat feed, used to compute Anterior alignment metrics at freeze time
+    // Throttles React state updates (UI numbers/text) driven by the pose
+    // onResults callback to ~8/sec instead of the full camera frame rate.
+    // The canvas skeleton/grid overlay itself is still redrawn every frame
+    // below (so the on-screen animation stays perfectly smooth) -- only the
+    // comparatively expensive React re-renders and evaluatePosture() calls,
+    // which don't need to run faster than a human can read the numbers, are
+    // throttled. This is the single biggest CPU/battery saving on mobile.
+    const lastUIUpdateRef = useRef(0);
+    const UI_UPDATE_INTERVAL_MS = 120;
     useEffect(() => {
         multiViewIndexRef.current = multiViewIndex;
     }, [multiViewIndex]);
@@ -728,6 +738,14 @@ function BPT1Module({
         }
         return () => stopCamera();
     }, [step]);
+    // The decorative aurora background is fully hidden behind the camera view
+    // during live capture anyway -- pausing its animation there frees up GPU
+    // compositing work for the pose overlay without any visible change.
+    useEffect(() => {
+        const active = step === 2 || step === 3;
+        document.body.classList.toggle("camera-active", active);
+        return () => document.body.classList.remove("camera-active");
+    }, [step]);
     // Live camera feed for the additional-view captures (step 3): runs the same
     // view-specific biomechanical analysis used by BPT2 (Posterior / Right Lateral /
     // Left Lateral), drawing the joint/angle overlay ("grid view") and analyzing
@@ -739,7 +757,7 @@ function BPT1Module({
             const videoElement = videoRef.current;
             const canvasElement = canvasRef.current;
             if (!videoElement || !canvasElement) return;
-            const canvasCtx = canvasElement.getContext('2d');
+            const canvasCtx = canvasElement.getContext('2d', { alpha: false });
 
             const poseInstance = new window.Pose({
                 locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
@@ -762,24 +780,32 @@ function BPT1Module({
                 const activeConfig = BPT1_VIEW_CONFIG[multiViewIndexRef.current];
                 if (results.poseLandmarks && activeConfig && activeConfig.analyzeFn) {
                     const result = window.PF_Pose[activeConfig.analyzeFn](results.poseLandmarks);
-                    setTrackingConfidence(result.confidence || 0);
-                    setOutOfFrame(!!result.outOfFrame);
                     if (!result.outOfFrame) {
-                        setMultiViewMetrics(result.metrics);
                         multiViewAnalysisRef.current = result;
                         // Module 1 (BPT1)-specific overlay: Posterior view draws a
                         // trunk-alignment line (parallel to the spine) with a neck
                         // point instead of the head/ear line. Module 2 (BPT2) is
                         // untouched and still uses drawBPT2ViewOverlay below.
+                        // Redrawn every frame (not throttled) for smooth animation.
                         drawBPT1ViewOverlay(canvasCtx, activeConfig.key, result.points);
                     } else {
                         multiViewAnalysisRef.current = null;
-                        setMultiViewMetrics(null);
+                    }
+                    const now = performance.now();
+                    if (now - lastUIUpdateRef.current >= UI_UPDATE_INTERVAL_MS) {
+                        lastUIUpdateRef.current = now;
+                        setTrackingConfidence(result.confidence || 0);
+                        setOutOfFrame(!!result.outOfFrame);
+                        setMultiViewMetrics(result.outOfFrame ? null : result.metrics);
                     }
                 } else {
-                    setOutOfFrame(true);
                     multiViewAnalysisRef.current = null;
-                    setMultiViewMetrics(null);
+                    const now = performance.now();
+                    if (now - lastUIUpdateRef.current >= UI_UPDATE_INTERVAL_MS) {
+                        lastUIUpdateRef.current = now;
+                        setOutOfFrame(true);
+                        setMultiViewMetrics(null);
+                    }
                 }
             });
             poseRef.current = poseInstance;
@@ -827,7 +853,7 @@ function BPT1Module({
             const videoElement = videoRef.current;
             const canvasElement = canvasRef.current;
             if (!videoElement || !canvasElement) return;
-            const canvasCtx = canvasElement.getContext('2d');
+            const canvasCtx = canvasElement.getContext('2d', { alpha: false });
 
             // Initializing MediaPipe Pose
             const poseInstance = new window.Pose({
@@ -851,23 +877,42 @@ function BPT1Module({
                 canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
                 canvasCtx.restore();
                 if (results.poseLandmarks) {
+                    // Keep the most recent raw landmarks around so the freeze
+                    // snapshot can compute Anterior alignment metrics (Neck,
+                    // Shoulder, Trunk, Hip, Knee, Ankle) the same way the
+                    // Posterior/Lateral static captures do.
+                    latestLandmarksRef.current = results.poseLandmarks;
                     // Execute Biomechanics analysis
                     const analysis = window.PF_Pose.analyzeLandmarks(results.poseLandmarks);
-                    setTrackingConfidence(analysis.confidence);
-                    setOutOfFrame(analysis.outOfFrame);
                     if (!analysis.outOfFrame) {
-                        setSquatState(analysis.squatState);
-                        setLiveAngles(analysis.angles);
-
-                        // Run active assessment
-                        const assessmentData = window.PF_Pose.evaluatePosture(analysis);
-                        setAssessmentRecord(assessmentData);
-
-                        // Draw skeleton overlays
+                        // Draw skeleton overlays every frame (not throttled) so the
+                        // on-screen grid/animation stays perfectly smooth.
                         drawPostureOverlays(canvasCtx, results.poseLandmarks, analysis);
                     }
+                    // UI numbers (confidence, squat state, angles, assessment) only
+                    // need to refresh a few times a second to be readable -- this
+                    // also skips the fairly heavy evaluatePosture() computation on
+                    // frames we're going to throttle anyway.
+                    const now = performance.now();
+                    if (now - lastUIUpdateRef.current >= UI_UPDATE_INTERVAL_MS) {
+                        lastUIUpdateRef.current = now;
+                        setTrackingConfidence(analysis.confidence);
+                        setOutOfFrame(analysis.outOfFrame);
+                        if (!analysis.outOfFrame) {
+                            setSquatState(analysis.squatState);
+                            setLiveAngles(analysis.angles);
+
+                            // Run active assessment
+                            const assessmentData = window.PF_Pose.evaluatePosture(analysis);
+                            setAssessmentRecord(assessmentData);
+                        }
+                    }
                 } else {
-                    setOutOfFrame(true);
+                    const now = performance.now();
+                    if (now - lastUIUpdateRef.current >= UI_UPDATE_INTERVAL_MS) {
+                        lastUIUpdateRef.current = now;
+                        setOutOfFrame(true);
+                    }
                 }
             });
             poseRef.current = poseInstance;
@@ -990,6 +1035,63 @@ function BPT1Module({
         const angles = analysis.angles;
         const colorNormal = "#10b981"; // Emerald
         const colorDev = "#ef4444"; // Red
+        // Single source of truth for Module 1's clinical bounds (from pose.js,
+        // sourced directly from the clinical squat chart) -- avoids duplicating
+        // magic numbers here that can silently drift out of sync.
+        const STD = window.PF_Pose.standards;
+
+        // --- Trunk Lean "default reference guide line" ---------------------
+        // A fixed plumb-line + shaded wedge showing the chart's normal trunk
+        // lean corridor (30deg-45deg from vertical), anchored at the hip. The
+        // person's actual trunk line is compared against this default graph
+        // line in real time so any deviation is immediately visible, and the
+        // same avgTrunk value drives the PDF/report deviation numbers.
+        const hipMid = { x: (lHip.x + rHip.x) / 2, y: (lHip.y + rHip.y) / 2 };
+        const shoulderMid = { x: (lShoulder.x + rShoulder.x) / 2, y: (lShoulder.y + rShoulder.y) / 2 };
+        const trunkColor = analysis.depthPct > 40
+            ? (angles.avgTrunk >= STD.trunk.minNormal && angles.avgTrunk <= STD.trunk.maxNormal ? colorNormal : colorDev)
+            : "white";
+        const drawTrunkLeanGuide = (hip, shoulder) => {
+            const p0x = 640 - hip.x * 640, p0y = hip.y * 480;
+            const p1x = 640 - shoulder.x * 640, p1y = shoulder.y * 480;
+            const L = Math.hypot(p1x - p0x, p1y - p0y) || 1;
+            const leanDir = (p1x - p0x) >= 0 ? 1 : -1; // which side the shoulder leans toward on screen
+            const boundaryPoint = angleDeg => {
+                const rad = angleDeg * Math.PI / 180;
+                return { x: p0x + leanDir * L * Math.sin(rad), y: p0y - L * Math.cos(rad) };
+            };
+            const minB = boundaryPoint(STD.trunk.minNormal); // 30°
+            const maxB = boundaryPoint(STD.trunk.maxNormal); // 45°
+
+            // Shaded normal-zone wedge between the 30° and 45° boundary lines
+            ctx.beginPath();
+            ctx.moveTo(p0x, p0y);
+            ctx.lineTo(minB.x, minB.y);
+            ctx.lineTo(maxB.x, maxB.y);
+            ctx.closePath();
+            ctx.fillStyle = "rgba(16, 185, 129, 0.15)";
+            ctx.fill();
+
+            ctx.save();
+            ctx.setLineDash([6, 5]);
+            // Dashed true-vertical plumb line (0° reference)
+            ctx.strokeStyle = "rgba(255,255,255,0.55)";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(p0x, p0y);
+            ctx.lineTo(p0x, p0y - L);
+            ctx.stroke();
+            // Dashed 30°/45° boundary lines (the chart's normal-zone edges)
+            ctx.strokeStyle = "rgba(16, 185, 129, 0.7)";
+            ctx.beginPath();
+            ctx.moveTo(p0x, p0y); ctx.lineTo(minB.x, minB.y);
+            ctx.moveTo(p0x, p0y); ctx.lineTo(maxB.x, maxB.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+        };
+        drawTrunkLeanGuide(hipMid, shoulderMid);
+
         // 1. Draw Bones
         drawBoneLine(lShoulder, rShoulder, "rgba(255,255,255,0.5)");
         drawBoneLine(lHip, rHip, "rgba(255,255,255,0.5)");
@@ -1003,17 +1105,27 @@ function BPT1Module({
         drawBoneLine(rShoulder, rHip, "rgba(236, 72, 153, 0.8)");
         drawBoneLine(rHip, rKnee, "rgba(236, 72, 153, 0.8)");
         drawBoneLine(rKnee, rAnkle, "rgba(236, 72, 153, 0.8)");
+
+        // Actual trunk-alignment line (hip midpoint -> shoulder midpoint), drawn
+        // thick and colored against the guide above so deviation from the
+        // default reference line reads instantly: green = within 30°-45°, red = deviated.
+        drawBoneLine(hipMid, shoulderMid, trunkColor, 4);
+
         // 2. Draw joint circle markers
         drawJointCircle(lShoulder, "white");
         drawJointCircle(rShoulder, "white");
 
-        // Dynamic color for knee based on flexion target (20-50, per updated Module 1 reference)
-        const lKneeColor = angles.leftKnee >= 20 && angles.leftKnee <= 50 ? colorNormal : analysis.depthPct > 40 ? colorDev : "#6366f1";
-        const rKneeColor = angles.rightKnee >= 20 && angles.rightKnee <= 50 ? colorNormal : analysis.depthPct > 40 ? colorDev : "#6366f1";
+        // Dynamic color for knee based on the clinical chart's flexion target
+        const lKneeColor = angles.leftKnee >= STD.knee.minNormal && angles.leftKnee <= STD.knee.maxNormal ? colorNormal : analysis.depthPct > 40 ? colorDev : "#6366f1";
+        const rKneeColor = angles.rightKnee >= STD.knee.minNormal && angles.rightKnee <= STD.knee.maxNormal ? colorNormal : analysis.depthPct > 40 ? colorDev : "#6366f1";
         drawJointCircle(lKnee, lKneeColor);
         drawJointCircle(rKnee, rKneeColor);
-        drawJointCircle(lHip, "white");
-        drawJointCircle(rHip, "white");
+
+        // Dynamic color for hip based on the clinical chart's flexion target
+        const lHipColor = angles.leftHip >= STD.hip.minNormal && angles.leftHip <= STD.hip.maxNormal ? colorNormal : analysis.depthPct > 40 ? colorDev : "white";
+        const rHipColor = angles.rightHip >= STD.hip.minNormal && angles.rightHip <= STD.hip.maxNormal ? colorNormal : analysis.depthPct > 40 ? colorDev : "white";
+        drawJointCircle(lHip, lHipColor);
+        drawJointCircle(rHip, rHipColor);
 
         // Shared grid-alignment palette (kept consistent with the Module 1
         // static-view overlays for Posterior/Right Lateral/Left Lateral)
@@ -1026,10 +1138,10 @@ function BPT1Module({
         drawMeasurementReticle(rAnkle, ANKLE_COLOR);
 
         // 2b. Foot/toe alignment grid: ankle -> toe segment, color-coded against
-        // the Ankle Alignment reference range (50°-70° dorsiflexion), with a
+        // the clinical chart's Ankle Dorsiflexion range, with a
         // measurement-reticle marker at each toe landmark.
-        const lAnkleColor = angles.leftAnkle >= 50 && angles.leftAnkle <= 70 ? colorNormal : colorDev;
-        const rAnkleColor = angles.rightAnkle >= 50 && angles.rightAnkle <= 70 ? colorNormal : colorDev;
+        const lAnkleColor = angles.leftAnkle >= STD.ankle.minNormal && angles.leftAnkle <= STD.ankle.maxNormal ? colorNormal : colorDev;
+        const rAnkleColor = angles.rightAnkle >= STD.ankle.minNormal && angles.rightAnkle <= STD.ankle.maxNormal ? colorNormal : colorDev;
         if (lFoot) {
             drawBoneLine(lAnkle, lFoot, lAnkleColor, 2.5);
             drawMeasurementReticle(lFoot, lAnkleColor);
@@ -1054,13 +1166,14 @@ function BPT1Module({
         // 3. Draw text overlays
         drawAngleLabel(lKnee, `${Math.round(angles.leftKnee)}°`, lKneeColor);
         drawAngleLabel(rKnee, `${Math.round(angles.rightKnee)}°`, rKneeColor);
-        drawAngleLabel(lHip, `${Math.round(angles.leftHip)}°`, "white");
-        drawAngleLabel(rHip, `${Math.round(angles.rightHip)}°`, "white");
+        drawAngleLabel(lHip, `${Math.round(angles.leftHip)}°`, lHipColor);
+        drawAngleLabel(rHip, `${Math.round(angles.rightHip)}°`, rHipColor);
         if (lFoot) drawAngleLabel(lFoot, `${Math.round(angles.leftAnkle)}°`, lAnkleColor);
         if (rFoot) drawAngleLabel(rFoot, `${Math.round(angles.rightAnkle)}°`, rAnkleColor);
 
-        // Trunk Angle label next to shoulders
-        drawAngleLabel(lShoulder, `Trunk: ${Math.round(angles.avgTrunk)}°`, "white");
+        // Trunk Angle label next to shoulders, colored against the default
+        // reference guide line above (green = within the chart's 30°-45° zone)
+        drawAngleLabel(lShoulder, `Trunk: ${Math.round(angles.avgTrunk)}°`, trunkColor);
     };
     const handleFreezeSnapshot = () => {
         const canvasElement = canvasRef.current;
@@ -1083,7 +1196,13 @@ function BPT1Module({
         };
         const interpretationText = window.PF_Pose.generateInterpretation(finalAssessment, squatState);
         const recommendationsText = window.PF_Pose.generateRecommendations(finalAssessment);
-        finalRecordRef.current = { finalAssessment, interpretationText, recommendationsText };
+        // Anterior alignment metrics (Neck, Shoulder, Trunk, Hip, Knee, Ankle),
+        // computed from the same freeze-frame landmarks, so the Anterior View
+        // report section uses the same parameter set as Posterior/Lateral.
+        const anteriorAnalysis = latestLandmarksRef.current
+            ? window.PF_Pose.analyzeAnteriorView(latestLandmarksRef.current)
+            : { view: "Anterior", outOfFrame: true };
+        finalRecordRef.current = { finalAssessment, interpretationText, recommendationsText, anteriorAnalysis };
         setCapturedViews({ anterior: dataUrl });
         setMultiViewIndex(1); // move on to Posterior (index 1) for the next capture
         setStep(3); // Go to additional-views capture
@@ -1117,27 +1236,51 @@ function BPT1Module({
     };
     const finalizeMultiViewReport = allViews => {
         stopCamera();
-        const { finalAssessment, interpretationText, recommendationsText } = finalRecordRef.current || {
+        const { finalAssessment, interpretationText, recommendationsText, anteriorAnalysis } = finalRecordRef.current || {
             finalAssessment: assessmentRecord || { overallStatus: "Normal", measurements: [], symmetryScore: 100 },
             interpretationText: window.PF_Pose.generateInterpretation(assessmentRecord, squatState),
-            recommendationsText: window.PF_Pose.generateRecommendations(assessmentRecord)
+            recommendationsText: window.PF_Pose.generateRecommendations(assessmentRecord),
+            anteriorAnalysis: null
         };
 
-        // Analyze the Posterior/Right Lateral/Left Lateral captures (neck, shoulder,
-        // trunk, hip, knee, and ankle/malleolar alignment) using the Module 1-specific
-        // evaluator, which orders views as Right Lateral, Left Lateral, then Posterior
-        // (Anterior/squat measurements above already cover the Anterior position),
-        // and orders joints within each view as Neck, Shoulder, Trunk, Hip, Knee, Ankle.
+        // Analyze the Anterior/Posterior/Right Lateral/Left Lateral captures
+        // (neck, shoulder, trunk, hip, knee, and ankle/malleolar alignment)
+        // using the Module 1-specific evaluator, so Anterior and Posterior
+        // share the exact same parameter set (Neck/Head, Shoulder, Trunk,
+        // Hip, Knee, Ankle) and only differ in which side of the body was
+        // measured. The squat-depth flexion measurements captured live
+        // (finalAssessment.measurements) are kept separately for the
+        // interpretation/recommendation text and the on-screen live check,
+        // but no longer double as the Anterior View report rows.
         const staticEval = window.PF_Pose.evaluateModule1StaticViews({
+            anterior: anteriorAnalysis,
             posterior: allViews.posterior?.analysis,
             rightLateral: allViews.rightLateral?.analysis,
             leftLateral: allViews.leftLateral?.analysis
         });
 
         const combinedMeasurements = [...(finalAssessment.measurements || []), ...staticEval.measurements];
-        const sigCount = combinedMeasurements.filter(m => m.status === "Significant Deviation").length;
-        const mildCount = combinedMeasurements.filter(m => m.status === "Mild Deviation").length;
-        const combinedStatus = sigCount > 0 ? "Significant Deviation" : mildCount > 0 ? "Mild Deviation" : "Normal";
+        // Overall risk is the average of every individual measurement's status
+        // (Normal=0, Mild=1, Significant=2), not "any single Significant flag
+        // wins" -- so a handful of significant deviations amid many normal/mild
+        // ones no longer forces the whole report to read as Significant.
+        const PF_STATUS_SCORE = { "Normal": 0, "Mild Deviation": 1, "Significant Deviation": 2 };
+        const combinedStatusScores = combinedMeasurements.map(m => PF_STATUS_SCORE[m.status] ?? 0);
+        const combinedAvgScore = combinedStatusScores.length > 0
+            ? combinedStatusScores.reduce((sum, s) => sum + s, 0) / combinedStatusScores.length
+            : 0;
+        const combinedStatus = combinedAvgScore >= 1.5 ? "Significant Deviation" : combinedAvgScore >= 0.5 ? "Mild Deviation" : "Normal";
+
+        // 4 separate view sections for the report, in the requested order:
+        // Anterior, Posterior, Lateral (Left), Lateral (Right). Anterior and
+        // Posterior now both come from the static-view evaluator's grouped
+        // output, so their parameter lists line up 1-for-1.
+        const viewSections = [
+            { label: "Anterior View", rows: staticEval.viewSections?.anterior || [] },
+            { label: "Posterior View", rows: staticEval.viewSections?.posterior || [] },
+            { label: "Lateral View (Left)", rows: staticEval.viewSections?.leftLateral || [] },
+            { label: "Lateral View (Right)", rows: staticEval.viewSections?.rightLateral || [] }
+        ];
 
         const combinedInterpretation = staticEval.measurements.length > 0
             ? `${interpretationText} ${window.PF_Pose.generatePostureInterpretation(staticEval)}`
@@ -1166,6 +1309,7 @@ function BPT1Module({
                 notes: assessment.notes
             },
             measurements: combinedMeasurements,
+            viewSections: viewSections,
             image_base64: imageOf(allViews.anterior) || frozenFrameRef.current,
             images: BPT1_VIEW_CONFIG.map(v => ({
                 label: v.label,
@@ -1321,7 +1465,7 @@ function BPT1Module({
             fontSize: 12,
             marginTop: 4
         }
-    }, "Left Knee Flexion (Ref: 20° - 50°)")), /*#__PURE__*/React.createElement("div", {
+    }, "Left Knee Flexion (Ref: 30° - 50°)")), /*#__PURE__*/React.createElement("div", {
         className: "risk-level-banner",
         style: {
             background: assessmentRecord?.overallStatus === "Significant Deviation" ? "var(--danger-bg)" : assessmentRecord?.overallStatus === "Mild Deviation" ? "var(--warning-bg)" : "var(--success-bg)",
@@ -1346,27 +1490,37 @@ function BPT1Module({
     }, /*#__PURE__*/React.createElement(AngleRow, {
         label: "Left Knee Flexion",
         val: liveAngles.leftKnee,
-        refRange: "20° - 50°",
+        refRange: "30° - 50°",
         status: assessmentRecord?.measurements?.find(m => m.joint === "Knee Flexion" && m.side === "Left")?.status || "Normal"
     }), /*#__PURE__*/React.createElement(AngleRow, {
         label: "Right Knee Flexion",
         val: liveAngles.rightKnee,
-        refRange: "20° - 50°",
+        refRange: "30° - 50°",
         status: assessmentRecord?.measurements?.find(m => m.joint === "Knee Flexion" && m.side === "Right")?.status || "Normal"
+    }), /*#__PURE__*/React.createElement(AngleRow, {
+        label: "Left Hip Flexion",
+        val: liveAngles.leftHip,
+        refRange: "55° - 70°",
+        status: assessmentRecord?.measurements?.find(m => m.joint === "Hip Flexion" && m.side === "Left")?.status || "Normal"
+    }), /*#__PURE__*/React.createElement(AngleRow, {
+        label: "Right Hip Flexion",
+        val: liveAngles.rightHip,
+        refRange: "55° - 70°",
+        status: assessmentRecord?.measurements?.find(m => m.joint === "Hip Flexion" && m.side === "Right")?.status || "Normal"
     }), /*#__PURE__*/React.createElement(AngleRow, {
         label: "Trunk Alignment",
         val: liveAngles.avgTrunk,
-        refRange: "20° - 50°",
+        refRange: "30° - 45°",
         status: assessmentRecord?.measurements?.find(m => m.joint === "Trunk Lean")?.status || "Normal"
     }), /*#__PURE__*/React.createElement(AngleRow, {
         label: "Left Ankle",
         val: liveAngles.leftAnkle,
-        refRange: "50° - 70°",
+        refRange: "50° - 55°",
         status: assessmentRecord?.measurements?.find(m => m.joint === "Ankle Alignment" && m.side === "Left")?.status || "Normal"
     }), /*#__PURE__*/React.createElement(AngleRow, {
         label: "Right Ankle",
         val: liveAngles.rightAnkle,
-        refRange: "50° - 70°",
+        refRange: "50° - 55°",
         status: assessmentRecord?.measurements?.find(m => m.joint === "Ankle Alignment" && m.side === "Right")?.status || "Normal"
     }))))), step === 3 && /*#__PURE__*/React.createElement("div", {
         className: "analysis-layout"
@@ -1516,6 +1670,8 @@ function BPT2Module({
     const cameraRef = useRef(null);
     const viewIndexRef = useRef(0);
     const liveAnalysisRef = useRef(null);
+    const lastUIUpdateRef = useRef(0);
+    const UI_UPDATE_INTERVAL_MS = 120;
 
     useEffect(() => {
         viewIndexRef.current = viewIndex;
@@ -1529,13 +1685,21 @@ function BPT2Module({
         }
         return () => stopCamera();
     }, [step]);
+    // Pause the decorative aurora background during live capture (Module 2) --
+    // it's fully covered by the camera view at that point, so pausing it is
+    // invisible to the user but frees up GPU compositing work.
+    useEffect(() => {
+        const active = step === 2;
+        document.body.classList.toggle("camera-active", active);
+        return () => document.body.classList.remove("camera-active");
+    }, [step]);
 
     const startCamera = async () => {
         setTimeout(async () => {
             const videoElement = videoRef.current;
             const canvasElement = canvasRef.current;
             if (!videoElement || !canvasElement) return;
-            const canvasCtx = canvasElement.getContext('2d');
+            const canvasCtx = canvasElement.getContext('2d', { alpha: false });
 
             const poseInstance = new window.Pose({
                 locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
@@ -1558,18 +1722,27 @@ function BPT2Module({
                 const activeConfig = BPT2_VIEW_CONFIG[viewIndexRef.current];
                 if (results.poseLandmarks && activeConfig) {
                     const result = window.PF_Pose[activeConfig.analyzeFn](results.poseLandmarks);
-                    setTrackingConfidence(result.confidence || 0);
-                    setOutOfFrame(!!result.outOfFrame);
                     if (!result.outOfFrame) {
-                        setLiveMetrics(result.metrics);
                         liveAnalysisRef.current = result;
+                        // Redrawn every frame (not throttled) for smooth animation.
                         drawBPT2ViewOverlay(canvasCtx, activeConfig.key, result.points);
                     } else {
                         liveAnalysisRef.current = null;
                     }
+                    const now = performance.now();
+                    if (now - lastUIUpdateRef.current >= UI_UPDATE_INTERVAL_MS) {
+                        lastUIUpdateRef.current = now;
+                        setTrackingConfidence(result.confidence || 0);
+                        setOutOfFrame(!!result.outOfFrame);
+                        setLiveMetrics(result.outOfFrame ? null : result.metrics);
+                    }
                 } else {
-                    setOutOfFrame(true);
                     liveAnalysisRef.current = null;
+                    const now = performance.now();
+                    if (now - lastUIUpdateRef.current >= UI_UPDATE_INTERVAL_MS) {
+                        lastUIUpdateRef.current = now;
+                        setOutOfFrame(true);
+                    }
                 }
             });
             poseRef.current = poseInstance;
@@ -2233,8 +2406,18 @@ function ReportCanvasPreview({
     const patient = reportData.patient || {};
     const session = reportData.session || {};
     const measurements = reportData.measurements || [];
+    const viewSections = (reportData.viewSections || []).filter(s => s.rows && s.rows.length > 0);
     const interpretation = reportData.interpretation || "";
     const recommendations = reportData.recommendations || [];
+    const renderMeasurementTable = rows => /*#__PURE__*/React.createElement("table", {
+        className: "report-table"
+    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Parameter"), /*#__PURE__*/React.createElement("th", null, "Side"), /*#__PURE__*/React.createElement("th", null, "Fixed / Normal Angle"), /*#__PURE__*/React.createElement("th", null, "Measured Angle"), /*#__PURE__*/React.createElement("th", null, "Deviation"), /*#__PURE__*/React.createElement("th", null, "Status"))), /*#__PURE__*/React.createElement("tbody", null, rows.map((m, idx) => /*#__PURE__*/React.createElement("tr", {
+        key: idx
+    }, /*#__PURE__*/React.createElement("td", null, m.joint), /*#__PURE__*/React.createElement("td", null, m.side), /*#__PURE__*/React.createElement("td", null, m.fixed || m.reference), /*#__PURE__*/React.createElement("td", {
+        style: { fontWeight: 600 }
+    }, Math.round(m.angle), "°"), /*#__PURE__*/React.createElement("td", null, m.deviation, "°"), /*#__PURE__*/React.createElement("td", {
+        className: m.status.includes("Significant") ? "text-danger" : m.status.includes("Mild") ? "text-warning" : "text-success"
+    }, m.status)))));
     return /*#__PURE__*/React.createElement("div", {
         className: "report-scroll-container"
     }, /*#__PURE__*/React.createElement("div", {
@@ -2319,19 +2502,13 @@ function ReportCanvasPreview({
     }, /*#__PURE__*/React.createElement("img", {
         src: reportData.image_base64,
         className: "report-image"
-    }))), /*#__PURE__*/React.createElement("div", {
+    }))), viewSections.length > 0 ? viewSections.map((section, sIdx) => /*#__PURE__*/React.createElement("div", {
+        key: sIdx
+    }, /*#__PURE__*/React.createElement("div", {
         className: "report-section-title"
-    }, "Biomechanical Joints Summary"), /*#__PURE__*/React.createElement("table", {
-        className: "report-table"
-    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Parameter"), /*#__PURE__*/React.createElement("th", null, "Side"), /*#__PURE__*/React.createElement("th", null, "Measured Angle"), /*#__PURE__*/React.createElement("th", null, "Reference normal"), /*#__PURE__*/React.createElement("th", null, "Deviation"), /*#__PURE__*/React.createElement("th", null, "Status"))), /*#__PURE__*/React.createElement("tbody", null, measurements.map((m, idx) => /*#__PURE__*/React.createElement("tr", {
-        key: idx
-    }, /*#__PURE__*/React.createElement("td", null, m.joint), /*#__PURE__*/React.createElement("td", null, m.side), /*#__PURE__*/React.createElement("td", {
-        style: {
-            fontWeight: 600
-        }
-    }, Math.round(m.angle), "°"), /*#__PURE__*/React.createElement("td", null, m.reference), /*#__PURE__*/React.createElement("td", null, m.deviation, "°"), /*#__PURE__*/React.createElement("td", {
-        className: m.status.includes("Significant") ? "text-danger" : m.status.includes("Mild") ? "text-warning" : "text-success"
-    }, m.status))))), /*#__PURE__*/React.createElement("div", {
+    }, section.label), renderMeasurementTable(section.rows))) : /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+        className: "report-section-title"
+    }, "Biomechanical Joints Summary"), renderMeasurementTable(measurements)), /*#__PURE__*/React.createElement("div", {
         className: "report-section-title"
     }, "Clinical Interpretation"), /*#__PURE__*/React.createElement("div", {
         className: "report-remarks"
