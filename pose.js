@@ -364,12 +364,59 @@
         };
     }
 
-    // Combine all 4 views into one clinical deviation table + overall status
+    // Module 2 (BPT2) REPORT-LABEL-ONLY map: translates each existing metric
+    // key to the clinical landmark/parameter name from the provided Anterior
+    // View Assessment / Posterior View Assessment / Lateral View Assessment /
+    // Right & Left Lateral View Landmarks charts. This ONLY changes what the
+    // report prints in the "Parameter" column -- it does not touch how any
+    // value is calculated, thresholded, or scored (that all still comes from
+    // STATIC_STANDARDS + checkOne below, completely unchanged). Right and
+    // Left Lateral share the same clinical landmark set (Right & Left Lateral
+    // View Landmarks table), so the two sides reuse the same label map.
+    const MODULE2_CLINICAL_LABELS = {
+        anterior: {
+            headPositionTilt: "Head",
+            shoulderTilt: "Right & Left Acromion Process",
+            trunkSymmetryFrontal: "Sternum",
+            pelvicTiltFrontal: "Right & Left ASIS",
+            kneeAlignmentFrontal: "Patellae",
+            ankleAlignmentFrontal: "Medial Malleoli"
+        },
+        posterior: {
+            headPositionTilt: "Occiput",
+            shoulderTilt: "Right & Left Acromion",
+            scapularSymmetry: "Inferior Angle of Scapula",
+            spinalAlignment: "Vertebral Spinous Process",
+            pelvicTiltPosterior: "Right & Left PSIS",
+            kneeAlignmentPosterior: "Popliteal Crease"
+        },
+        rightLateral: {
+            headPositionForward: "External Auditory Meatus (Craniovertebral Angle)",
+            trunkSagittal: "Shoulder (Acromion Process)",
+            thighSagittal: "Greater Trochanter",
+            sagittalCurvature: "Thoracic Spine"
+        },
+        leftLateral: {
+            headPositionForward: "External Auditory Meatus (Craniovertebral Angle)",
+            trunkSagittal: "Shoulder (Acromion Process)",
+            thighSagittal: "Greater Trochanter",
+            sagittalCurvature: "Thoracic Spine"
+        }
+    };
+
+    // Combine all 4 views into one clinical deviation table + overall status.
+    // Also groups the exact same rows by view (viewSections) so the report
+    // can render 4 separate tables -- Anterior / Posterior / Lateral (Left) /
+    // Lateral (Right) -- matching Module 1's report layout. No calculation,
+    // threshold, or measurement value is changed here; only the "joint"
+    // display label (now sourced from MODULE2_CLINICAL_LABELS) and the added
+    // grouping are new.
     function evaluateFullBodyPosture(views) {
         let devCount = 0, sigDevCount = 0;
         const measurements = [];
+        const viewSections = { anterior: [], posterior: [], rightLateral: [], leftLateral: [] };
 
-        const checkOne = (viewLabel, metricKey, val, side) => {
+        const checkOne = (sectionKey, viewLabel, metricKey, val, side) => {
             const standards = STATIC_STANDARDS[metricKey];
             if (!standards || val === undefined || val === null) return;
             let status = "Normal";
@@ -382,14 +429,21 @@
                 devCount++;
                 if (status === "Significant Deviation") sigDevCount++;
             }
-            measurements.push({
-                joint: `${viewLabel} – ${standards.name}`,
+            // Prefer the clinical landmark name for this view/metric; fall
+            // back to the original generic label if no mapping exists (so
+            // nothing silently disappears from the report).
+            const clinicalLabel = MODULE2_CLINICAL_LABELS[sectionKey]?.[metricKey];
+            const row = {
+                joint: clinicalLabel ? clinicalLabel : `${viewLabel} – ${standards.name}`,
                 side: side || "Compare",
                 angle: val,
+                fixed: standards.refRange,
                 reference: standards.refRange,
                 deviation: parseFloat(diff.toFixed(1)),
                 status: status
-            });
+            };
+            measurements.push(row);
+            if (viewSections[sectionKey]) viewSections[sectionKey].push(row);
         };
 
         if (views.anterior && !views.anterior.outOfFrame) {
@@ -401,36 +455,36 @@
             // Trunk Symmetry (Shoulder-Hip) and Ankle/Malleolar Symmetry --
             // both already tracked from the front -- keeping the same
             // 6-parameter, Head/Shoulder/Trunk/Hip/Knee/Ankle structure as Posterior.
-            checkOne("Anterior", "headPositionTilt", m.headPositionTilt, "L-R");
-            checkOne("Anterior", "shoulderTilt", m.shoulderTilt, "L-R");
-            checkOne("Anterior", "trunkSymmetryFrontal", m.trunkSymmetryFrontal, "L-R");
-            checkOne("Anterior", "pelvicTiltFrontal", m.pelvicTiltFrontal, "L-R");
-            checkOne("Anterior", "kneeAlignmentFrontal", m.kneeAlignmentFrontal, "L-R");
-            checkOne("Anterior", "ankleAlignmentFrontal", m.ankleAlignmentFrontal, "L-R");
+            checkOne("anterior", "Anterior", "headPositionTilt", m.headPositionTilt, "L-R");
+            checkOne("anterior", "Anterior", "shoulderTilt", m.shoulderTilt, "L-R");
+            checkOne("anterior", "Anterior", "trunkSymmetryFrontal", m.trunkSymmetryFrontal, "L-R");
+            checkOne("anterior", "Anterior", "pelvicTiltFrontal", m.pelvicTiltFrontal, "L-R");
+            checkOne("anterior", "Anterior", "kneeAlignmentFrontal", m.kneeAlignmentFrontal, "L-R");
+            checkOne("anterior", "Anterior", "ankleAlignmentFrontal", m.ankleAlignmentFrontal, "L-R");
         }
         if (views.posterior && !views.posterior.outOfFrame) {
             const m = views.posterior.metrics;
             // Ordered per requested report sequence: Head/Neck, Shoulder, Trunk, Hip, Knee
-            checkOne("Posterior", "headPositionTilt", m.headPositionTilt, "L-R");
-            checkOne("Posterior", "shoulderTilt", m.shoulderTilt, "L-R");
-            checkOne("Posterior", "scapularSymmetry", m.scapularSymmetry, "L-R");
-            checkOne("Posterior", "spinalAlignment", m.spinalAlignment, "Center");
-            checkOne("Posterior", "pelvicTiltPosterior", m.pelvicTiltPosterior, "L-R");
-            checkOne("Posterior", "kneeAlignmentPosterior", m.kneeAlignmentPosterior, "L-R");
+            checkOne("posterior", "Posterior", "headPositionTilt", m.headPositionTilt, "L-R");
+            checkOne("posterior", "Posterior", "shoulderTilt", m.shoulderTilt, "L-R");
+            checkOne("posterior", "Posterior", "scapularSymmetry", m.scapularSymmetry, "L-R");
+            checkOne("posterior", "Posterior", "spinalAlignment", m.spinalAlignment, "Center");
+            checkOne("posterior", "Posterior", "pelvicTiltPosterior", m.pelvicTiltPosterior, "L-R");
+            checkOne("posterior", "Posterior", "kneeAlignmentPosterior", m.kneeAlignmentPosterior, "L-R");
         }
         if (views.rightLateral && !views.rightLateral.outOfFrame) {
             const m = views.rightLateral.metrics;
-            checkOne("Right Lateral", "headPositionForward", m.headPositionForward, "Right");
-            checkOne("Right Lateral", "trunkSagittal", m.trunkSagittal, "Right");
-            checkOne("Right Lateral", "thighSagittal", m.thighSagittal, "Right");
-            checkOne("Right Lateral", "sagittalCurvature", m.sagittalCurvature, "Right");
+            checkOne("rightLateral", "Right Lateral", "headPositionForward", m.headPositionForward, "Right");
+            checkOne("rightLateral", "Right Lateral", "trunkSagittal", m.trunkSagittal, "Right");
+            checkOne("rightLateral", "Right Lateral", "thighSagittal", m.thighSagittal, "Right");
+            checkOne("rightLateral", "Right Lateral", "sagittalCurvature", m.sagittalCurvature, "Right");
         }
         if (views.leftLateral && !views.leftLateral.outOfFrame) {
             const m = views.leftLateral.metrics;
-            checkOne("Left Lateral", "headPositionForward", m.headPositionForward, "Left");
-            checkOne("Left Lateral", "trunkSagittal", m.trunkSagittal, "Left");
-            checkOne("Left Lateral", "thighSagittal", m.thighSagittal, "Left");
-            checkOne("Left Lateral", "sagittalCurvature", m.sagittalCurvature, "Left");
+            checkOne("leftLateral", "Left Lateral", "headPositionForward", m.headPositionForward, "Left");
+            checkOne("leftLateral", "Left Lateral", "trunkSagittal", m.trunkSagittal, "Left");
+            checkOne("leftLateral", "Left Lateral", "thighSagittal", m.thighSagittal, "Left");
+            checkOne("leftLateral", "Left Lateral", "sagittalCurvature", m.sagittalCurvature, "Left");
         }
 
         // Compute Overall Risk Category by averaging every individual
@@ -449,7 +503,7 @@
             else if (avgStatusScore >= 0.5) overallStatus = "Mild Deviation";
         }
 
-        return { overallStatus, measurements };
+        return { overallStatus, measurements, viewSections };
     }
 
     // --- Module 1 (BPT1): evaluates the Posterior / Right Lateral / Left Lateral
