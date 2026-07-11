@@ -28,7 +28,7 @@
 
     --font-heading: 'Outfit', sans-serif;
     --font-body: 'Plus Jakarta Sans', sans-serif;
-    --transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), color 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
@@ -43,6 +43,11 @@ body {
         radial-gradient(at 15% 10%, rgba(201, 103, 140, 0.07) 0px, transparent 55%),
         radial-gradient(at 85% 90%, rgba(168, 73, 122, 0.07) 0px, transparent 55%);
     background-attachment: fixed;
+    /* background-attachment:fixed forces a repaint on every scroll frame on
+       most mobile browsers (it can't be handled by the compositor the way
+       it can on desktop) -- a common, significant source of scroll jank on
+       phones. Overridden to normal scrolling attachment below for small
+       screens. */
     color: var(--text-main);
     font-family: var(--font-body);
     min-height: 100vh;
@@ -53,10 +58,10 @@ body {
 
 /* ===========================================================================
    Ambient background animation
-   Four large, softly blurred colour blobs drift and slowly shift hue behind
-   the whole app. They are fixed, pointer-events:none and sit at z-index:-1,
-   so they never overlap, block, or otherwise interfere with any interactive
-   element or existing functionality -- purely decorative motion.
+   Two large, softly blurred colour blobs slowly drift behind the whole app
+   (a third and fourth smaller blob render statically for depth, without a
+   running animation). Fixed, pointer-events:none, z-index:-1 -- purely
+   decorative, never overlaps or blocks any interactive element.
    =========================================================================== */
 body::before,
 body::after,
@@ -67,7 +72,11 @@ body::after,
     border-radius: 50%;
     pointer-events: none;
     z-index: -1;
-    will-change: transform, filter;
+}
+
+body::before,
+body::after {
+    will-change: transform;
 }
 
 body::before {
@@ -78,8 +87,8 @@ body::before {
     max-width: 680px;
     max-height: 680px;
     background: radial-gradient(circle, rgba(201, 103, 140, 0.40) 0%, transparent 72%);
-    filter: blur(70px) hue-rotate(0deg);
-    animation: auroraDriftA 20s ease-in-out infinite, auroraHue 44s linear infinite;
+    filter: blur(70px);
+    animation: auroraDriftA 26s ease-in-out infinite;
 }
 
 body::after {
@@ -90,10 +99,13 @@ body::after {
     max-width: 620px;
     max-height: 620px;
     background: radial-gradient(circle, rgba(168, 73, 122, 0.36) 0%, transparent 72%);
-    filter: blur(75px) hue-rotate(0deg);
-    animation: auroraDriftB 24s ease-in-out infinite, auroraHue 50s linear infinite reverse;
+    filter: blur(75px);
+    animation: auroraDriftB 30s ease-in-out infinite;
 }
 
+/* The two smaller app-container blobs stay put (no continuous transform
+   loop) -- they still render for visual depth, but don't add extra
+   compositor layers that have to be redrawn on every animation frame. */
 .app-container::before {
     top: -10%;
     right: -14%;
@@ -103,7 +115,6 @@ body::after {
     max-height: 440px;
     background: radial-gradient(circle, rgba(220, 184, 214, 0.30) 0%, transparent 72%);
     filter: blur(60px);
-    animation: auroraDriftC 26s ease-in-out infinite;
 }
 
 .app-container::after {
@@ -115,7 +126,6 @@ body::after {
     max-height: 400px;
     background: radial-gradient(circle, rgba(232, 201, 215, 0.28) 0%, transparent 72%);
     filter: blur(60px);
-    animation: auroraDriftD 30s ease-in-out infinite;
 }
 
 @keyframes auroraDriftA {
@@ -142,51 +152,125 @@ body::after {
     }
 }
 
-@keyframes auroraDriftC {
-
-    0%,
-    100% {
-        transform: translate(0, 0) scale(1);
-    }
-
-    50% {
-        transform: translate(-6vw, 5vh) scale(1.1);
-    }
-}
-
-@keyframes auroraDriftD {
-
-    0%,
-    100% {
-        transform: translate(0, 0) scale(1);
-    }
-
-    50% {
-        transform: translate(6vw, -5vh) scale(1.08);
-    }
-}
-
-@keyframes auroraHue {
-    0% {
-        filter: blur(70px) hue-rotate(0deg);
-    }
-
-    50% {
-        filter: blur(70px) hue-rotate(25deg);
-    }
-
-    100% {
-        filter: blur(70px) hue-rotate(0deg);
-    }
-}
-
 @media (prefers-reduced-motion: reduce) {
 
     body::before,
-    body::after,
+    body::after {
+        animation: none;
+    }
+}
+
+/* Mobile: drop the last continuous background animation too -- weaker GPUs
+   otherwise spend real frame budget compositing a large blurred layer that
+   never stops moving, which is a common source of scroll/tap jank on phones. */
+@media (max-width: 768px) {
+
+    /* The global transition includes box-shadow, which the browser can't
+       hand off to the compositor -- every transition frame is a fresh paint.
+       Mobile keeps just the cheap, GPU-composited properties (transform,
+       opacity-adjacent color/background/border changes are still fine). */
+    :root {
+        --transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), color 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body::before,
+    body::after {
+        animation: none;
+    }
+
+    /* background-attachment:fixed is a major scroll-jank cause on mobile
+       browsers (repaints the background on every scroll frame instead of
+       letting the compositor handle it). Normal scrolling attachment here. */
+    body {
+        background-attachment: scroll;
+    }
+
+    /* Remaining small decorative loops (badge pulse ring, login logo float)
+       -- cheap individually, but every running animation still costs a
+       ticking compositor/paint job on a phone, so switch them off there. */
+    .badge-danger,
+    .login-logo {
+        animation: none !important;
+    }
+
+    /* Heavier per-element box-shadows are visually subtle at small sizes
+       anyway; flatten them on mobile so the browser has less to paint per
+       card, especially in scrolling grids of several cards at once. */
+    .glass-hover:hover,
+    .modules-grid>.module-card:hover,
+    .stats-grid>.stat-card:hover {
+        transform: none;
+    }
+
+    /* The two static (non-animating) decorative blobs still cost a paint +
+       compositor layer for a large blurred circle on top of everything
+       being scrolled underneath. Dropping them on mobile is invisible to
+       users (they're purely ambient) but frees up real GPU headroom. */
     .app-container::before,
     .app-container::after {
-        animation: none;
+        display: none;
+    }
+
+    /* The remaining two blobs (body::before/after) keep their static
+       presence for brand feel, but a smaller/lighter blur radius is
+       noticeably cheaper for the GPU to rasterize on mid/low-end phones. */
+    body::before,
+    body::after {
+        filter: blur(40px);
+        opacity: 0.7;
+    }
+
+    /* Full-viewport grain texture sits above literally everything with
+       mix-blend-mode:multiply, which forces the browser to composite the
+       whole page through it on every paint. Nice on a desktop GPU, not
+       worth the cost on a phone for an effect this subtle. */
+    #root::after {
+        display: none;
+    }
+
+    /* Runs once per table row on every render; fine for a handful of rows
+       on desktop, adds up fast once a patient history table scrolls on a
+       small device. */
+    .badge {
+        animation: none !important;
+    }
+
+    /* Lighter blur radius on the remaining frosted-glass surfaces --
+       visually very close at phone viewing distance/size, meaningfully
+       cheaper to composite than a full 10-12px blur. */
+    .glass,
+    .sidebar,
+    .modal-overlay {
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+    }
+
+    /* Last remaining continuous (infinite-loop) animation on the page --
+       a 12s transform loop behind the dashboard hero card. Small and
+       blur-free, but "infinite" still means the browser never stops
+       scheduling frames for it for as long as the tab is open, which is
+       unnecessary battery/CPU drain on a phone for a barely-visible effect. */
+    .hero-card::after {
+        animation: none !important;
+    }
+
+    /* will-change reserves a dedicated GPU layer for as long as it's set.
+       Useful while body::before/after are actually animating (desktop),
+       wasteful memory overhead here now that their animation is off. */
+    body::before,
+    body::after {
+        will-change: auto;
+    }
+}
+
+/* Very small phones: drop the ambient blobs entirely. At this size they're
+   barely visible anyway, and lower-end devices in this bracket benefit the
+   most from not rasterizing two large blurred circles at all. */
+@media (max-width: 480px) {
+
+    body::before,
+    body::after {
+        display: none;
     }
 }
 
@@ -203,8 +287,8 @@ h6 {
 /* Glassmorphism utility */
 .glass {
     background: var(--bg-card);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
     border: 1px solid var(--border-color);
     border-radius: 16px;
     box-shadow: 0 8px 28px 0 rgba(43, 34, 41, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.5);
@@ -227,8 +311,8 @@ h6 {
 /* Sidebar Styling */
 .sidebar {
     width: 260px;
-    background: rgba(255, 255, 255, 0.82);
-    backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(12px);
     border-right: 1px solid var(--border-color);
     padding: 24px 16px;
     display: flex;
@@ -1598,17 +1682,19 @@ textarea:focus-visible,
     }
 }
 
-/* Modals: backdrop fades, panel scales + rises in — replaces the flatter
-   fade for a more deliberate "arrival" moment */
+/* Modals: backdrop fades in via opacity only. The overlay's blur is a
+   static, non-animated property (see .modal-overlay) -- animating
+   backdrop-filter itself (as this used to do, 0px -> 8px) forces the
+   browser to recompute the blur of everything behind the modal on every
+   single frame, which is one of the most expensive things you can animate
+   and a common cause of visible stutter opening a modal on a phone. */
 @keyframes modalBackdropIn {
     from {
         opacity: 0;
-        backdrop-filter: blur(0px);
     }
 
     to {
         opacity: 1;
-        backdrop-filter: blur(8px);
     }
 }
 
@@ -2109,27 +2195,15 @@ body {
     font-size: clamp(24px, 3.4vw, 34px);
     background: var(--grad-brand);
     background-size: 200% auto;
+    background-position: 30% center;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    animation: gradientDrift 8s ease-in-out infinite;
-}
-
-@keyframes gradientDrift {
-
-    0%,
-    100% {
-        background-position: 0% 50%;
-    }
-
-    50% {
-        background-position: 100% 50%;
-    }
 }
 
 .score-num {
     background-size: 200% auto;
-    animation: scoreGlow 0.8s ease-out, gradientDrift 6s ease-in-out infinite 0.8s;
+    animation: scoreGlow 0.8s ease-out;
 }
 
 /* Gradient-edge "glass" cards: a hairline brand-gradient border plus a soft
@@ -2300,8 +2374,11 @@ body {
 .custom-table th {
     position: sticky;
     top: 0;
-    background: var(--bg-card);
-    backdrop-filter: blur(8px);
+    /* Solid (not backdrop-blurred) on purpose: a sticky element re-running
+       backdrop-filter on every scroll frame is a common cause of scroll
+       jank, especially on mobile. A near-opaque background gives the same
+       "always legible over content" effect without that per-frame cost. */
+    background: rgba(255, 247, 251, 0.97);
 }
 
 .table-container {
@@ -2410,9 +2487,9 @@ body {
 
 /* Slightly richer, pink-tinted glass blur (kept subtle) */
 .sidebar {
-    background: rgba(255, 250, 252, 0.82);
-    backdrop-filter: blur(20px) saturate(140%);
-    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    background: rgba(255, 250, 252, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
 /* Gentle, mostly-neutral page wash -- pink is an accent, not a dominant tint */
@@ -2457,25 +2534,16 @@ body {
    calm styling.
    =========================================================================== */
 
-/* --- Hero banner: slow-shifting jewel-tone gradient + shimmering title --- */
+/* --- Hero banner: jewel-tone gradient + shimmering title (static -- was a
+   continuously animated background-position "shine", which forces a full
+   repaint of a large card every single frame for as long as the dashboard
+   is open; that's expensive on any device and especially on mobile) --- */
 .hero-card {
     background: linear-gradient(120deg, #f6d9e8 0%, #e3d3f5 30%, #d3ddfa 60%, #cdeee6 100%);
-    background-size: 320% 320%;
-    animation: dazzleHeroShift 14s ease-in-out infinite;
+    background-size: 180% 180%;
+    background-position: 30% 40%;
     border: 1px solid rgba(255, 255, 255, 0.65);
     box-shadow: 0 12px 36px -14px rgba(109, 40, 217, 0.22);
-}
-
-@keyframes dazzleHeroShift {
-
-    0%,
-    100% {
-        background-position: 0% 50%;
-    }
-
-    50% {
-        background-position: 100% 50%;
-    }
 }
 
 .hero-card::after {
@@ -2488,16 +2556,10 @@ body {
 .hero-card h2 {
     background: linear-gradient(90deg, #a8497a, #6d28d9, #0891b2, #a8497a);
     background-size: 300% auto;
+    background-position: 35% center;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    animation: dazzleTitleShine 7s linear infinite;
-}
-
-@keyframes dazzleTitleShine {
-    to {
-        background-position: -300% center;
-    }
 }
 
 /* --- Stat cards: colorful gradient icon badges + matching top accent --- */
@@ -2576,13 +2638,13 @@ body {
     width: 45%;
     height: 100%;
     background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.55), transparent);
-    transform: skewX(-20deg);
-    transition: left 0.7s ease;
+    transform: skewX(-20deg) translateX(0%);
+    transition: transform 0.7s ease;
     pointer-events: none;
 }
 
 .modules-grid>.module-card:hover::after {
-    left: 130%;
+    transform: skewX(-20deg) translateX(420%);
 }
 
 .modules-grid>.module-card:nth-child(1) .module-tag {
