@@ -735,15 +735,26 @@ function DashboardView({
 // overlay <canvas> always bakes a horizontal mirror into its raw pixels (the
 // video is drawn selfie-style via a ctx-level flip, and overlay points are
 // manually mirrored to match -- see drawBPT1ViewOverlay/drawBPT2ViewOverlay
-// below). On screen, the `.mirrored` CSS class cancels that flip back out
-// for front cameras, and the "CORRECT POSTURE" badge text is pre-mirrored
-// specifically to cancel out that same CSS flip (see the note above
-// drawCorrectPostureBadge) -- but a still image never gets that CSS applied,
-// so a raw canvasElement.toDataURL() snapshot came out with the person
-// mirrored and the badge text backwards. Re-flipping the snapshot once more
-// here (only for the saved/report image, never the live view) undoes the
-// baked-in mirror: the photo ends up in its true, non-mirrored orientation
-// and the badge text reads correctly in the on-screen preview and exported PDF.
+// below). That ctx-level bake happens unconditionally, on every camera --
+// front or rear -- so the on-screen ".mirrored" CSS class (transform:
+// scaleX(-1)) that cancels it back out must ALSO be applied unconditionally,
+// and the "CORRECT POSTURE" badge text is pre-mirrored specifically to
+// cancel out that same CSS flip (see the note above drawCorrectPostureBadge).
+// Bug history: this class used to be applied only when isFrontCamera was
+// true. On laptops the browser always hands back a front-facing webcam, so
+// that happened to always be true and everything cancelled out correctly.
+// On phones this app asks for (and usually gets) the rear camera for
+// clinical shots, so isFrontCamera was false there -- the unconditional
+// pixel-level bake was never cancelled back out, and the live video,
+// skeleton overlay, and badge text all displayed mirrored/backwards on
+// mobile even though the underlying analysis (and the PDF, which re-corrects
+// the image independently below) was correct the whole time. A still image
+// never gets that CSS applied, so a raw canvasElement.toDataURL() snapshot
+// came out with the person mirrored and the badge text backwards. Re-flipping
+// the snapshot once more here (only for the saved/report image, never the
+// live view) undoes the baked-in mirror: the photo ends up in its true,
+// non-mirrored orientation and the badge text reads correctly in the
+// on-screen preview and exported PDF.
 function captureCorrectedFrame(sourceCanvas) {
     if (!sourceCanvas) return null;
     const w = sourceCanvas.width;
@@ -1473,14 +1484,14 @@ function BPT1Module({
         className: "camera-panel"
     }, /*#__PURE__*/React.createElement("video", {
         ref: videoRef,
-        className: "video-element" + (isFrontCamera ? " mirrored" : ""),
+        className: "video-element mirrored",
         muted: true,
         style: {
             display: "none"
         }
     }), /*#__PURE__*/React.createElement("canvas", {
         ref: canvasRef,
-        className: "canvas-element" + (isFrontCamera ? " mirrored" : ""),
+        className: "canvas-element mirrored",
         width: "640",
         height: "480"
     }), outOfFrame && /*#__PURE__*/React.createElement("div", {
@@ -1634,12 +1645,12 @@ function BPT1Module({
         className: "camera-panel"
     }, /*#__PURE__*/React.createElement("video", {
         ref: videoRef,
-        className: "video-element" + (isFrontCamera ? " mirrored" : ""),
+        className: "video-element mirrored",
         muted: true,
         style: { display: "none" }
     }), /*#__PURE__*/React.createElement("canvas", {
         ref: canvasRef,
-        className: "canvas-element" + (isFrontCamera ? " mirrored" : ""),
+        className: "canvas-element mirrored",
         width: "640",
         height: "480"
     }), outOfFrame && /*#__PURE__*/React.createElement("div", {
@@ -2029,12 +2040,12 @@ function BPT2Module({
         className: "camera-panel"
     }, /*#__PURE__*/React.createElement("video", {
         ref: videoRef,
-        className: "video-element" + (isFrontCamera ? " mirrored" : ""),
+        className: "video-element mirrored",
         muted: true,
         style: { display: "none" }
     }), /*#__PURE__*/React.createElement("canvas", {
         ref: canvasRef,
-        className: "canvas-element" + (isFrontCamera ? " mirrored" : ""),
+        className: "canvas-element mirrored",
         width: "640",
         height: "480"
     }), outOfFrame && /*#__PURE__*/React.createElement("div", {
