@@ -33,12 +33,66 @@
         }
     }
 
+    // Detects mobile/touch devices so triggerDownload can use a delivery
+    // method that's actually reliable there -- see the comment inside
+    // triggerDownload for why mobile needs different handling than desktop.
+    function isMobileDevice() {
+        const uaHasMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "");
+        const touchPrimary = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+        return uaHasMobile || touchPrimary;
+    }
+
     // Reliably triggers a file download across browsers/hosting environments
     // (works both locally via file://, when deployed e.g. on GitHub Pages, and
     // inside sandboxed preview iframes that may block programmatic downloads).
     function triggerDownload(doc, data) {
         const patient = data.patient || {};
         const filename = `postureflex_report_${patient.patient_id || 'patient'}_${new Date().toISOString().split('T')[0]}.pdf`;
+
+        // Mobile path: open the PDF in the browser's own PDF viewer (a new
+        // tab) instead of simulating a click on a hidden <a download> link.
+        //
+        // Bug history: on phones, generating a report in Module 1 worked
+        // fine, but the very next report in Module 2 would silently fail to
+        // download. Root cause was the blob+<a download> approach below --
+        // it revoked its blob URL after a fixed 2-second timeout, assuming
+        // the save had completed by then. On desktop that's true instantly.
+        // On mobile, handing a blob off to the OS's "Save to Files" / share
+        // flow is asynchronous and can take longer than 2 seconds (more so
+        // for a multi-page report with embedded photos), so the URL was
+        // sometimes revoked out from under an in-progress save. Once that
+        // happened once, several mobile browsers are left with their
+        // download subsystem in a broken state for the rest of the page
+        // session -- which is exactly the "only one PDF at a time, module 2
+        // never works after module 1" symptom. Opening the PDF in a new tab
+        // sidesteps that entirely: every module gets its own fresh tab with
+        // a working, native "Share" / "Download" button, and there's no
+        // early-revoke race because the URL only needs to stay alive long
+        // enough for that new tab to load it.
+        if (isMobileDevice()) {
+            try {
+                const blob = doc.output('blob');
+                const blobUrl = URL.createObjectURL(blob);
+                const opened = window.open(blobUrl, '_blank');
+                if (!opened) {
+                    throw new Error("Popup blocked");
+                }
+                // Give the new tab plenty of time to actually load the PDF
+                // before the URL is released, rather than the 2s desktop
+                // window that caused the original bug.
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+                return;
+            } catch (err) {
+                console.warn("Mobile new-tab PDF delivery failed, falling back to doc.save():", err);
+            }
+            try {
+                doc.save(filename);
+                return;
+            } catch (err) {
+                console.error("All mobile download methods failed:", err);
+                throw new Error("The browser blocked the file download. Please try again, or check your browser's download/popup settings.");
+            }
+        }
 
         // Attempt 1: Blob + temporary <a download> link (best UX, real filename)
         try {
