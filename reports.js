@@ -81,6 +81,12 @@
         }
     }
 
+    // Maps internal module codes (BPT1/BPT2) to their user-facing display labels.
+    function getModuleDisplayName(moduleCode) {
+        if (moduleCode === "BPT2") return "Posture Analysis";
+        return "Squat Analysis"; // default / BPT1
+    }
+
     // Builds the actual PDF content (separated so the outer function can catch any failures)
     async function buildReportPdf(doc, data) {
         const patient = data.patient || {};
@@ -146,13 +152,14 @@
         doc.text("Patient Name:", MARGIN + 15, currentY + 20);
         doc.text("Patient ID:", MARGIN + 15, currentY + 38);
         doc.text("Age / Gender:", MARGIN + 15, currentY + 56);
-        doc.text("Assessor:", MARGIN + 15, currentY + 74);
 
         // Column 2
         doc.text("Assessment Date:", COL2_X, currentY + 20);
         doc.text("Session Type:", COL2_X, currentY + 38);
         doc.text("Module Used:", COL2_X, currentY + 56);
-        doc.text("Overall Risk:", COL2_X, currentY + 74);
+
+        // Full-width row (longer label, needs more horizontal room)
+        doc.text("Overall Postural Profile:", MARGIN + 15, currentY + 74);
 
         // Values
         doc.setFont("helvetica", "normal");
@@ -161,11 +168,10 @@
         doc.text(patient.name || "N/A", MARGIN + 105, currentY + 20);
         doc.text(patient.patient_id || "N/A", MARGIN + 105, currentY + 38);
         doc.text(`${patient.age || "N/A"} yrs / ${patient.gender || "N/A"}`, MARGIN + 105, currentY + 56);
-        doc.text(patient.assessor || "N/A", MARGIN + 105, currentY + 74);
 
         doc.text(session.date || new Date().toLocaleDateString(), COL2_VAL_X, currentY + 20);
         doc.text(patient.session_type || "Initial", COL2_VAL_X, currentY + 38);
-        doc.text(session.module || "BPT1", COL2_VAL_X, currentY + 56);
+        doc.text(getModuleDisplayName(session.module), COL2_VAL_X, currentY + 56);
 
         // Risk Status with color coding
         const risk = session.risk_level || "Normal";
@@ -177,7 +183,7 @@
         } else {
             doc.setTextColor(5, 150, 105); // Emerald
         }
-        doc.text(risk, COL2_VAL_X, currentY + 74);
+        doc.text(risk, MARGIN + 165, currentY + 74);
 
         currentY += 105;
 
@@ -374,7 +380,7 @@
         doc.setFont("helvetica", "bold");
         doc.setFontSize(9.5);
         doc.setTextColor(31, 41, 55);
-        doc.text("Assessor Signature: _______________________", RIGHT_EDGE, footerTextY, { align: "right" });
+       
     }
 
     window.PF_Reports = {
