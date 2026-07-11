@@ -1432,6 +1432,7 @@ function BPT1Module({
             risk_level: reportPreviewData.session.risk_level,
             notes: assessment.notes,
             measurements: reportPreviewData.measurements,
+            viewSections: reportPreviewData.viewSections,
             interpretation: reportPreviewData.interpretation,
             recommendations: reportPreviewData.recommendations
         };
@@ -1986,6 +1987,7 @@ function BPT2Module({
             risk_level: reportPreviewData.session.risk_level,
             notes: assessment.notes,
             measurements: reportPreviewData.measurements,
+            viewSections: reportPreviewData.viewSections,
             interpretation: reportPreviewData.interpretation,
             recommendations: reportPreviewData.recommendations
         };
@@ -2507,6 +2509,7 @@ function buildReportDataFromLog(log) {
             notes: log.session_notes
         },
         measurements: log.measurements,
+        viewSections: log.viewSections || [],
         interpretation: log.interpretation,
         recommendations: log.recommendations
     };
