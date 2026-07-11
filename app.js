@@ -617,7 +617,7 @@ function DashboardView({
         className: "animate-fade-in"
     }, /*#__PURE__*/React.createElement("div", {
         className: "hero-card"
-    }, /*#__PURE__*/React.createElement("h2", null, "Clinical Assessment Hub"), /*#__PURE__*/React.createElement("p", null, "Welcome to the PostureFlex assessment lab. Physiotherapy students can evaluate patient mechanics using live-camera squat analysis (BPT1) or a guided live-camera 4-view static posture screening -- Anterior, Posterior, Right Lateral, Left Lateral (BPT2) -- both powered by real-time computer vision joint tracking.")), /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("h2", null, "Clinical Assessment Hub"), /*#__PURE__*/React.createElement("p", null, "Welcome to the PostureFlex assessment lab. Physiotherapy students can evaluate patient mechanics using live-camera (SQUAT ANALYSIS) or a guided live-camera 4-view static posture screening (POSTURE ANALYSIS)-- both powered by real-time computer vision joint tracking.")), /*#__PURE__*/React.createElement("div", {
         className: "stats-grid"
     }, /*#__PURE__*/React.createElement("div", {
         className: "stat-card glass"
