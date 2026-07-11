@@ -73,7 +73,6 @@
                     patient_name: pat.name || "Unknown",
                     patient_age: pat.age || 0,
                     patient_gender: pat.gender || "Unknown",
-                    assessor_name: pat.assessor_name || "Unknown",
                     interpretation: s.interpretation || "",
                     recommendations: s.recommendations || [],
                     measurements: s.measurements || []
