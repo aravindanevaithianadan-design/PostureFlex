@@ -116,11 +116,20 @@
         kneeAlignmentPosterior: { name: "Knee Alignment (Midpoint)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 12 },
         ankleAlignmentFrontal: { name: "Ankle/Malleolar Symmetry (Malleoli L/R)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 12 },
         ankleAlignmentPosterior: { name: "Ankle/Malleolar Symmetry (Malleoli L/R)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 12 },
+        // Module 2 (BPT2) addition: Toe/forefoot L-R level, front and back --
+        // the ankle+toe grid's toe reading, alongside the existing ankle
+        // alignment rows above. Same tolerance band as ankle alignment.
+        toeAlignmentFrontal: { name: "Toe Alignment (Forefoot L/R)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 12 },
+        toeAlignmentPosterior: { name: "Toe Alignment (Forefoot L/R)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 12 },
         spinalAlignment: { name: "Spinal Alignment (C7 to PSIS Midpoint)", refRange: "0° - 4°", minNormal: 0, maxNormal: 4, warningThreshold: 10 },
         trunkSymmetryFrontal: { name: "Trunk Symmetry (Shoulder-Hip Alignment)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 12 },
         trunkSymmetryPosterior: { name: "Trunk Symmetry (Shoulder-Hip Alignment)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 12 },
         trunkSagittal: { name: "Trunk-Pelvis Sagittal Alignment (Acromion-Trochanter)", refRange: "0° - 7°", minNormal: 0, maxNormal: 7, warningThreshold: 12 },
         thighSagittal: { name: "Pelvis-Knee Sagittal Alignment (Trochanter-Condyle)", refRange: "0° - 7°", minNormal: 0, maxNormal: 7, warningThreshold: 12 },
+        // Module 2 (BPT2) addition: Ankle Dorsiflexion (Knee-Ankle-Toe), the
+        // lateral views' ankle+toe reading -- same reference band as Module 1's
+        // equivalent metric (MODULE1_STATIC_STANDARDS.ankleSagittal below).
+        ankleSagittal: { name: "Ankle Dorsiflexion (Sagittal)", refRange: "70° - 110°", minNormal: 70, maxNormal: 110, warningThreshold: 20 },
         sagittalCurvature: { name: "Overall Sagittal Curvature", refRange: "0° - 9°", minNormal: 0, maxNormal: 9, warningThreshold: 20 },
         headPositionTilt: { name: "Head Position (Ear Level L/R)", refRange: "0° - 4°", minNormal: 0, maxNormal: 4, warningThreshold: 10 },
         headPositionForward: { name: "Head Position (Forward Head Posture)", refRange: "0° - 12°", minNormal: 0, maxNormal: 12, warningThreshold: 25 },
@@ -135,21 +144,32 @@
     // tuning request: small deviations should stay "Normal"/"Mild" instead of
     // escalating straight to "Significant Deviation".
     const MODULE1_STATIC_STANDARDS = {
-        headPositionTilt: { name: "Head/Neck Tilt (Ear Level L/R)", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, warningThreshold: 8 },
-        shoulderTilt: { name: "Shoulder Level (Acromion L/R)", refRange: "0° - 4°", minNormal: 0, maxNormal: 4, warningThreshold: 10 },
-        trunkSymmetryFrontal: { name: "Trunk Symmetry (Shoulder-Hip Alignment)", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, warningThreshold: 8 },
-        trunkSymmetryPosterior: { name: "Trunk Symmetry (Shoulder-Hip Alignment)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 8 },
+        // Renamed to match the clinical "Deep Squat - Parameters with Normal
+        // and Abnormal Values" chart. Degree-based rows have their
+        // minNormal/maxNormal/warningThreshold updated to the chart's stated
+        // ranges. Rows that the chart defines in centimeters (Hip/PSIS, Knee
+        // posterior, Heel, Ankle Malleoli anterior) are left completely
+        // untouched, since this app has no camera calibration to measure cm.
+        headPositionTilt: { name: "Neck symmetry", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 5 },
+        shoulderTilt: { name: "Shoulder symmetry", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 5 },
+        // Posterior-only combined row (chart: "Neck & Shoulder" scapular
+        // check) -- averaged from headPositionTilt + shoulderTilt at the
+        // point of measurement in evaluateModule1StaticViews below.
+        neckShoulderPosterior: { name: "Neck & Shoulder", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 5 },
+        trunkSymmetryFrontal: { name: "Trunk symmetry", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 5 },
+        trunkSymmetryPosterior: { name: "Trunk symmetry", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 5 },
         pelvicTiltFrontal: { name: "Hip Level (ASIS L/R)", refRange: "0° - 4°", minNormal: 0, maxNormal: 4, warningThreshold: 14 },
         pelvicTiltPosterior: { name: "Hip Level (PSIS L/R)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 6 },
-        kneeAlignmentFrontal: { name: "Knee Alignment (Patellae)", refRange: "2° - 5°", minNormal: 2, maxNormal: 5, warningThreshold: 12 },
+        kneeAlignmentFrontal: { name: "Knee symmetry", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 5 },
         kneeAlignmentPosterior: { name: "Knee Alignment (Popliteal Crease)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 12 },
-        ankleAlignmentFrontal: { name: "Ankle Alignment (Malleoli L/R)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 12 },
-        ankleAlignmentPosterior: { name: "Ankle Alignment (Malleoli L/R)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 12 },
+        ankleAlignmentFrontal: { name: "Ankle symmetry", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 12 },
+        ankleAlignmentPosterior: { name: "Ankle joint line", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, warningThreshold: 5 },
         heelAlignmentPosterior: { name: "Heel Alignment (Calcaneus/Achilles L/R)", refRange: "4° - 15°", minNormal: 4, maxNormal: 15, warningThreshold: 10 },
-        trunkSagittal: { name: "Trunk Lean (Sagittal)", refRange: "10° - 30°", minNormal: 10, maxNormal: 30, warningThreshold: 18 },
-        hipSagittal: { name: "Hip Alignment (Sagittal)", refRange: "95° - 105°", minNormal: 95, maxNormal: 105, warningThreshold: 18 },
-        kneeSagittal: { name: "Knee Alignment (Sagittal Flexion)", refRange: "50° - 70°", minNormal: 50, maxNormal: 70, warningThreshold: 20 },
-        ankleSagittal: { name: "Ankle Dorsiflexion (Sagittal)", refRange: "70° - 110°", minNormal: 70, maxNormal: 110, warningThreshold: 20 }
+        trunkSagittal: { name: "Trunk lean angle", refRange: "30° - 45°", minNormal: 30, maxNormal: 45, warningThreshold: 8 },
+        hipSagittal: { name: "Hip flexion angle", refRange: "110° - 130°", minNormal: 110, maxNormal: 130, warningThreshold: 10 },
+        kneeSagittal: { name: "Knee joint angle", refRange: "130° - 150°", minNormal: 130, maxNormal: 999, warningThreshold: 15 },
+        ankleSagittal: { name: "Ankle dorsiflexion angle", refRange: "35° - 45°", minNormal: 35, maxNormal: 999, warningThreshold: 10 },
+        headPositionForward: { name: "Craniocervical angle", refRange: "50° - 55°", minNormal: 50, maxNormal: 999, warningThreshold: 1 }
     };
 
     function midpoint(A, B) {
@@ -167,6 +187,26 @@
         const dy = R.y - L.y;
         const angleRad = Math.atan2(Math.abs(dy), Math.abs(dx) || 0.0001);
         return parseFloat((angleRad * 180 / Math.PI).toFixed(1));
+    }
+    // Determines which side (Left/Right) is deviated for a raw Left/Right
+    // landmark pair used in an L-R level/tilt comparison (e.g. shoulderTilt,
+    // pelvicTiltFrontal, kneeAlignmentFrontal, etc). The point sitting lower
+    // on screen (larger y, since MediaPipe's normalized y grows downward) is
+    // treated as the "dropped" / deviated side -- e.g. if the right shoulder
+    // sits lower than the left, the shoulder-level deviation is reported as
+    // being on the Right side.
+    function sideOfLowerPoint(L, R) {
+        if (!L || !R) return null;
+        return L.y > R.y ? "Left" : "Right";
+    }
+    // Determines the deviated side for a vertical-line comparison (used for
+    // Trunk Symmetry / Spinal Alignment, where a single line from an upper
+    // reference point down to a lower reference point is compared against
+    // true vertical). Whichever way the upper point leans relative to the
+    // lower one is reported as the deviated side.
+    function sideOfVerticalLean(upper, lower) {
+        if (!upper || !lower) return null;
+        return upper.x < lower.x ? "Left" : "Right";
     }
     function checkFrameConfidence(landmarks, indices) {
         if (!landmarks || landmarks.length < 33) return { confidence: 0, outOfFrame: true };
@@ -200,6 +240,10 @@
         const lKnee = landmarks[LM.L_KNEE], rKnee = landmarks[LM.R_KNEE];
         const lAnkle = landmarks[LM.L_ANKLE], rAnkle = landmarks[LM.R_ANKLE];
         const anklesVisible = (lAnkle?.visibility || 0) >= 0.3 && (rAnkle?.visibility || 0) >= 0.3;
+        // Module 2 (BPT2) addition: toe/forefoot landmark for the Anterior
+        // view's ankle+toe grid overlay and Toe Alignment (Forefoot L/R) metric.
+        const lFoot = landmarks[LM.L_FOOT], rFoot = landmarks[LM.R_FOOT];
+        const feetVisible = (lFoot?.visibility || 0) >= 0.3 && (rFoot?.visibility || 0) >= 0.3;
         const lEar = landmarks[LM.L_EAR], rEar = landmarks[LM.R_EAR];
         const earsVisible = (lEar?.visibility || 0) >= 0.3 && (rEar?.visibility || 0) >= 0.3;
         const shoulderMid = midpoint(lShoulder, rShoulder);
@@ -217,7 +261,8 @@
                 asisL: lHip, asisR: rHip,
                 patellaeCenter: midpoint(lKnee, rKnee),
                 kneeL: lKnee, kneeR: rKnee,
-                ankleL: lAnkle, ankleR: rAnkle
+                ankleL: lAnkle, ankleR: rAnkle,
+                footL: lFoot, footR: rFoot
             },
             metrics: {
                 ...(earsVisible ? { headPositionTilt: calculateTiltFromHorizontal(lEar, rEar) } : {}),
@@ -229,7 +274,20 @@
                 pelvicTiltFrontal: calculateTiltFromHorizontal(lHip, rHip),
                 kneeAlignmentFrontal: calculateTiltFromHorizontal(lKnee, rKnee),
                 // Module 1 (BPT1) 4-view report addition: L-R ankle/malleolar level from the front.
-                ...(anklesVisible ? { ankleAlignmentFrontal: calculateTiltFromHorizontal(lAnkle, rAnkle) } : {})
+                ...(anklesVisible ? { ankleAlignmentFrontal: calculateTiltFromHorizontal(lAnkle, rAnkle) } : {}),
+                // Module 2 (BPT2) addition: L-R toe/forefoot level from the front.
+                ...(feetVisible ? { toeAlignmentFrontal: calculateTiltFromHorizontal(lFoot, rFoot) } : {})
+            },
+            // Deviated-side lookup ("Left"/"Right") for each L-R metric above,
+            // used by the report's "Deviated Side" column.
+            sides: {
+                ...(earsVisible ? { headPositionTilt: sideOfLowerPoint(lEar, rEar) } : {}),
+                shoulderTilt: sideOfLowerPoint(lShoulder, rShoulder),
+                trunkSymmetryFrontal: (shoulderMid && hipMid) ? sideOfVerticalLean(shoulderMid, hipMid) : null,
+                pelvicTiltFrontal: sideOfLowerPoint(lHip, rHip),
+                kneeAlignmentFrontal: sideOfLowerPoint(lKnee, rKnee),
+                ...(anklesVisible ? { ankleAlignmentFrontal: sideOfLowerPoint(lAnkle, rAnkle) } : {}),
+                ...(feetVisible ? { toeAlignmentFrontal: sideOfLowerPoint(lFoot, rFoot) } : {})
             }
         };
     }
@@ -247,6 +305,9 @@
         const lHeel = landmarks[LM.L_HEEL], rHeel = landmarks[LM.R_HEEL];
         const heelsVisible = (lHeel?.visibility || 0) >= 0.3 && (rHeel?.visibility || 0) >= 0.3;
         const lFoot = landmarks[LM.L_FOOT], rFoot = landmarks[LM.R_FOOT];
+        // Module 2 (BPT2) addition: toe/forefoot visibility gate for the
+        // Posterior view's Toe Alignment (Forefoot L/R) metric.
+        const feetVisible = (lFoot?.visibility || 0) >= 0.3 && (rFoot?.visibility || 0) >= 0.3;
         const lWrist = landmarks[LM.L_WRIST], rWrist = landmarks[LM.R_WRIST];
         const lEar = landmarks[LM.L_EAR], rEar = landmarks[LM.R_EAR];
         const earsVisible = (lEar?.visibility || 0) >= 0.3 && (rEar?.visibility || 0) >= 0.3;
@@ -287,7 +348,23 @@
                 // calcaneal valgus-varus" check from the clinical reference chart.
                 ...(heelsVisible ? { heelAlignmentPosterior: calculateTiltFromHorizontal(lHeel, rHeel) } : {}),
                 spinalAlignment: c7Approx ? calculateAngleFromVertical(c7Approx, hipMid) : 0,
-                scapularSymmetry: calculateTiltFromHorizontal(scapulaInferiorL, scapulaInferiorR)
+                scapularSymmetry: calculateTiltFromHorizontal(scapulaInferiorL, scapulaInferiorR),
+                // Module 2 (BPT2) addition: L-R toe/forefoot level from behind.
+                ...(feetVisible ? { toeAlignmentPosterior: calculateTiltFromHorizontal(lFoot, rFoot) } : {})
+            },
+            // Deviated-side lookup ("Left"/"Right") for each L-R metric above,
+            // used by the report's "Deviated Side" column.
+            sides: {
+                ...(earsVisible ? { headPositionTilt: sideOfLowerPoint(lEar, rEar) } : {}),
+                shoulderTilt: sideOfLowerPoint(lShoulder, rShoulder),
+                trunkSymmetryPosterior: (shoulderMid && hipMid) ? sideOfVerticalLean(shoulderMid, hipMid) : null,
+                pelvicTiltPosterior: sideOfLowerPoint(lHip, rHip),
+                kneeAlignmentPosterior: sideOfLowerPoint(lKnee, rKnee),
+                ...(anklesVisible ? { ankleAlignmentPosterior: sideOfLowerPoint(lAnkle, rAnkle) } : {}),
+                ...(heelsVisible ? { heelAlignmentPosterior: sideOfLowerPoint(lHeel, rHeel) } : {}),
+                spinalAlignment: c7Approx ? sideOfVerticalLean(c7Approx, hipMid) : null,
+                scapularSymmetry: sideOfLowerPoint(scapulaInferiorL, scapulaInferiorR),
+                ...(feetVisible ? { toeAlignmentPosterior: sideOfLowerPoint(lFoot, rFoot) } : {})
             }
         };
     }
@@ -380,7 +457,9 @@
             trunkSymmetryFrontal: "Sternum",
             pelvicTiltFrontal: "Right & Left ASIS",
             kneeAlignmentFrontal: "Patellae",
-            ankleAlignmentFrontal: "Medial Malleoli"
+            ankleAlignmentFrontal: "Medial Malleoli",
+            // Module 2 (BPT2) addition: toe/forefoot grid clinical label.
+            toeAlignmentFrontal: "Right & Left 2nd Metatarsal (Forefoot)"
         },
         posterior: {
             headPositionTilt: "Occiput",
@@ -388,18 +467,25 @@
             scapularSymmetry: "Inferior Angle of Scapula",
             spinalAlignment: "Vertebral Spinous Process",
             pelvicTiltPosterior: "Right & Left PSIS",
-            kneeAlignmentPosterior: "Popliteal Crease"
+            kneeAlignmentPosterior: "Popliteal Crease",
+            // Module 2 (BPT2) addition: ankle + toe/forefoot grid clinical labels.
+            ankleAlignmentPosterior: "Medial Malleoli",
+            toeAlignmentPosterior: "Right & Left 2nd Metatarsal (Forefoot)"
         },
         rightLateral: {
             headPositionForward: "External Auditory Meatus (Craniovertebral Angle)",
             trunkSagittal: "Shoulder (Acromion Process)",
             thighSagittal: "Greater Trochanter",
+            // Module 2 (BPT2) addition: ankle + toe (dorsiflexion) clinical label.
+            ankleSagittal: "Lateral Malleolus – 5th Metatarsal",
             sagittalCurvature: "Thoracic Spine"
         },
         leftLateral: {
             headPositionForward: "External Auditory Meatus (Craniovertebral Angle)",
             trunkSagittal: "Shoulder (Acromion Process)",
             thighSagittal: "Greater Trochanter",
+            // Module 2 (BPT2) addition: ankle + toe (dorsiflexion) clinical label.
+            ankleSagittal: "Medial Malleolus – 1st Metatarsal",
             sagittalCurvature: "Thoracic Spine"
         }
     };
@@ -416,7 +502,7 @@
         const measurements = [];
         const viewSections = { anterior: [], posterior: [], rightLateral: [], leftLateral: [] };
 
-        const checkOne = (sectionKey, viewLabel, metricKey, val, side) => {
+        const checkOne = (sectionKey, viewLabel, metricKey, val, side, deviatedSide) => {
             const standards = STATIC_STANDARDS[metricKey];
             if (!standards || val === undefined || val === null) return;
             let status = "Normal";
@@ -440,7 +526,11 @@
                 fixed: standards.refRange,
                 reference: standards.refRange,
                 deviation: parseFloat(diff.toFixed(1)),
-                status: status
+                status: status,
+                // Which side (Left/Right) the deviation is on, only meaningful
+                // when status !== "Normal" -- consumers should display "-" for
+                // Normal rows regardless of what's stored here.
+                deviatedSide: deviatedSide || null
             };
             measurements.push(row);
             if (viewSections[sectionKey]) viewSections[sectionKey].push(row);
@@ -455,36 +545,47 @@
             // Trunk Symmetry (Shoulder-Hip) and Ankle/Malleolar Symmetry --
             // both already tracked from the front -- keeping the same
             // 6-parameter, Head/Shoulder/Trunk/Hip/Knee/Ankle structure as Posterior.
-            checkOne("anterior", "Anterior", "headPositionTilt", m.headPositionTilt, "L-R");
-            checkOne("anterior", "Anterior", "shoulderTilt", m.shoulderTilt, "L-R");
-            checkOne("anterior", "Anterior", "trunkSymmetryFrontal", m.trunkSymmetryFrontal, "L-R");
-            checkOne("anterior", "Anterior", "pelvicTiltFrontal", m.pelvicTiltFrontal, "L-R");
-            checkOne("anterior", "Anterior", "kneeAlignmentFrontal", m.kneeAlignmentFrontal, "L-R");
-            checkOne("anterior", "Anterior", "ankleAlignmentFrontal", m.ankleAlignmentFrontal, "L-R");
+            const s = views.anterior.sides || {};
+            checkOne("anterior", "Anterior", "headPositionTilt", m.headPositionTilt, "L-R", s.headPositionTilt);
+            checkOne("anterior", "Anterior", "shoulderTilt", m.shoulderTilt, "L-R", s.shoulderTilt);
+            checkOne("anterior", "Anterior", "trunkSymmetryFrontal", m.trunkSymmetryFrontal, "L-R", s.trunkSymmetryFrontal);
+            checkOne("anterior", "Anterior", "pelvicTiltFrontal", m.pelvicTiltFrontal, "L-R", s.pelvicTiltFrontal);
+            checkOne("anterior", "Anterior", "kneeAlignmentFrontal", m.kneeAlignmentFrontal, "L-R", s.kneeAlignmentFrontal);
+            checkOne("anterior", "Anterior", "ankleAlignmentFrontal", m.ankleAlignmentFrontal, "L-R", s.ankleAlignmentFrontal);
+            // Module 2 (BPT2) addition: toe/forefoot alignment reading, alongside ankle above.
+            checkOne("anterior", "Anterior", "toeAlignmentFrontal", m.toeAlignmentFrontal, "L-R", s.toeAlignmentFrontal);
         }
         if (views.posterior && !views.posterior.outOfFrame) {
             const m = views.posterior.metrics;
+            const s = views.posterior.sides || {};
             // Ordered per requested report sequence: Head/Neck, Shoulder, Trunk, Hip, Knee
-            checkOne("posterior", "Posterior", "headPositionTilt", m.headPositionTilt, "L-R");
-            checkOne("posterior", "Posterior", "shoulderTilt", m.shoulderTilt, "L-R");
-            checkOne("posterior", "Posterior", "scapularSymmetry", m.scapularSymmetry, "L-R");
-            checkOne("posterior", "Posterior", "spinalAlignment", m.spinalAlignment, "Center");
-            checkOne("posterior", "Posterior", "pelvicTiltPosterior", m.pelvicTiltPosterior, "L-R");
-            checkOne("posterior", "Posterior", "kneeAlignmentPosterior", m.kneeAlignmentPosterior, "L-R");
+            checkOne("posterior", "Posterior", "headPositionTilt", m.headPositionTilt, "L-R", s.headPositionTilt);
+            checkOne("posterior", "Posterior", "shoulderTilt", m.shoulderTilt, "L-R", s.shoulderTilt);
+            checkOne("posterior", "Posterior", "scapularSymmetry", m.scapularSymmetry, "L-R", s.scapularSymmetry);
+            checkOne("posterior", "Posterior", "spinalAlignment", m.spinalAlignment, "Center", s.spinalAlignment);
+            checkOne("posterior", "Posterior", "pelvicTiltPosterior", m.pelvicTiltPosterior, "L-R", s.pelvicTiltPosterior);
+            checkOne("posterior", "Posterior", "kneeAlignmentPosterior", m.kneeAlignmentPosterior, "L-R", s.kneeAlignmentPosterior);
+            // Module 2 (BPT2) addition: ankle + toe/forefoot alignment readings.
+            checkOne("posterior", "Posterior", "ankleAlignmentPosterior", m.ankleAlignmentPosterior, "L-R", s.ankleAlignmentPosterior);
+            checkOne("posterior", "Posterior", "toeAlignmentPosterior", m.toeAlignmentPosterior, "L-R", s.toeAlignmentPosterior);
         }
         if (views.rightLateral && !views.rightLateral.outOfFrame) {
             const m = views.rightLateral.metrics;
-            checkOne("rightLateral", "Right Lateral", "headPositionForward", m.headPositionForward, "Right");
-            checkOne("rightLateral", "Right Lateral", "trunkSagittal", m.trunkSagittal, "Right");
-            checkOne("rightLateral", "Right Lateral", "thighSagittal", m.thighSagittal, "Right");
-            checkOne("rightLateral", "Right Lateral", "sagittalCurvature", m.sagittalCurvature, "Right");
+            checkOne("rightLateral", "Right Lateral", "headPositionForward", m.headPositionForward, "Right", "Right");
+            checkOne("rightLateral", "Right Lateral", "trunkSagittal", m.trunkSagittal, "Right", "Right");
+            checkOne("rightLateral", "Right Lateral", "thighSagittal", m.thighSagittal, "Right", "Right");
+            // Module 2 (BPT2) addition: ankle dorsiflexion (knee-ankle-toe) reading.
+            checkOne("rightLateral", "Right Lateral", "ankleSagittal", m.ankleSagittal, "Right", "Right");
+            checkOne("rightLateral", "Right Lateral", "sagittalCurvature", m.sagittalCurvature, "Right", "Right");
         }
         if (views.leftLateral && !views.leftLateral.outOfFrame) {
             const m = views.leftLateral.metrics;
-            checkOne("leftLateral", "Left Lateral", "headPositionForward", m.headPositionForward, "Left");
-            checkOne("leftLateral", "Left Lateral", "trunkSagittal", m.trunkSagittal, "Left");
-            checkOne("leftLateral", "Left Lateral", "thighSagittal", m.thighSagittal, "Left");
-            checkOne("leftLateral", "Left Lateral", "sagittalCurvature", m.sagittalCurvature, "Left");
+            checkOne("leftLateral", "Left Lateral", "headPositionForward", m.headPositionForward, "Left", "Left");
+            checkOne("leftLateral", "Left Lateral", "trunkSagittal", m.trunkSagittal, "Left", "Left");
+            checkOne("leftLateral", "Left Lateral", "thighSagittal", m.thighSagittal, "Left", "Left");
+            // Module 2 (BPT2) addition: ankle dorsiflexion (knee-ankle-toe) reading.
+            checkOne("leftLateral", "Left Lateral", "ankleSagittal", m.ankleSagittal, "Left", "Left");
+            checkOne("leftLateral", "Left Lateral", "sagittalCurvature", m.sagittalCurvature, "Left", "Left");
         }
 
         // Compute Overall Risk Category by averaging every individual
@@ -524,7 +625,7 @@
         // order/group rows in the report (Neck/Head, Shoulder, Trunk Symmetry,
         // Trunk Lean, Hip, Knee, Ankle, Heel); "joint" stays as the detailed
         // metric name for interpretation/recommendation text lookups.
-        const checkOne = (sectionKey, category, viewLabel, metricKey, val, side) => {
+        const checkOne = (sectionKey, category, viewLabel, metricKey, val, side, deviatedSide) => {
             const standards = MODULE1_STATIC_STANDARDS[metricKey];
             if (!standards || val === undefined || val === null) return;
             let status = "Normal";
@@ -548,7 +649,11 @@
                 fixed: standards.refRange, // fixed/normal reference angle range
                 reference: standards.refRange,
                 deviation: parseFloat(diff.toFixed(1)),
-                status: status
+                status: status,
+                // Which side (Left/Right) the deviation is on, only meaningful
+                // when status !== "Normal" -- consumers should display "-" for
+                // Normal rows regardless of what's stored here.
+                deviatedSide: deviatedSide || null
             };
             measurements.push(row);
             if (viewSections[sectionKey]) viewSections[sectionKey].push(row);
@@ -566,32 +671,42 @@
         // supplied the measurement.
         if (views.anterior && !views.anterior.outOfFrame) {
             const m = views.anterior.metrics;
-            checkOne("anterior", "Neck / Head", "Anterior", "headPositionTilt", m.headPositionTilt, "L-R");
-            checkOne("anterior", "Shoulder", "Anterior", "shoulderTilt", m.shoulderTilt, "L-R");
-            checkOne("anterior", "Trunk Symmetry", "Anterior", "trunkSymmetryFrontal", m.trunkSymmetryFrontal, "L-R");
-            checkOne("anterior", "Hip", "Anterior", "pelvicTiltFrontal", m.pelvicTiltFrontal, "L-R");
-            checkOne("anterior", "Knee", "Anterior", "kneeAlignmentFrontal", m.kneeAlignmentFrontal, "L-R");
-            checkOne("anterior", "Ankle", "Anterior", "ankleAlignmentFrontal", m.ankleAlignmentFrontal, "L-R");
+            const s = views.anterior.sides || {};
+            checkOne("anterior", "Neck / Head", "Anterior", "headPositionTilt", m.headPositionTilt, "L-R", s.headPositionTilt);
+            checkOne("anterior", "Shoulder", "Anterior", "shoulderTilt", m.shoulderTilt, "L-R", s.shoulderTilt);
+            checkOne("anterior", "Trunk Symmetry", "Anterior", "trunkSymmetryFrontal", m.trunkSymmetryFrontal, "L-R", s.trunkSymmetryFrontal);
+            // Module 1 (BPT1) ONLY: Anterior "Hip Level (ASIS L/R)" row removed
+            // by request. Module 2 (BPT2)'s Anterior view still reports this
+            // parameter unchanged (see the "anterior" block above, ~line 461).
+            checkOne("anterior", "Knee", "Anterior", "kneeAlignmentFrontal", m.kneeAlignmentFrontal, "L-R", s.kneeAlignmentFrontal);
+            checkOne("anterior", "Ankle", "Anterior", "ankleAlignmentFrontal", m.ankleAlignmentFrontal, "L-R", s.ankleAlignmentFrontal);
         }
         if (views.posterior && !views.posterior.outOfFrame) {
             const m = views.posterior.metrics;
-            checkOne("posterior", "Neck / Head", "Posterior", "headPositionTilt", m.headPositionTilt, "L-R");
-            checkOne("posterior", "Shoulder", "Posterior", "shoulderTilt", m.shoulderTilt, "L-R");
-            checkOne("posterior", "Trunk Symmetry", "Posterior", "trunkSymmetryPosterior", m.trunkSymmetryPosterior, "L-R");
-            checkOne("posterior", "Hip", "Posterior", "pelvicTiltPosterior", m.pelvicTiltPosterior, "L-R");
-            checkOne("posterior", "Knee", "Posterior", "kneeAlignmentPosterior", m.kneeAlignmentPosterior, "L-R");
-            checkOne("posterior", "Ankle", "Posterior", "ankleAlignmentPosterior", m.ankleAlignmentPosterior, "L-R");
-            checkOne("posterior", "Heel", "Posterior", "heelAlignmentPosterior", m.heelAlignmentPosterior, "L-R");
+            const s = views.posterior.sides || {};
+            checkOne("posterior", "Trunk Symmetry", "Posterior", "trunkSymmetryPosterior", m.trunkSymmetryPosterior, "L-R", s.trunkSymmetryPosterior);
+            // Combined "Neck & Shoulder" row (per updated clinical chart) --
+            // averages the existing headPositionTilt + shoulderTilt angle
+            // readings into a single row instead of two separate ones. Its
+            // deviated side falls back to whichever of the two source
+            // metrics' sides is available (they usually agree).
+            const neckShoulderVals = [m.headPositionTilt, m.shoulderTilt].filter(v => v !== undefined && v !== null);
+            if (neckShoulderVals.length > 0) {
+                const neckShoulderAvg = parseFloat((neckShoulderVals.reduce((a, b) => a + b, 0) / neckShoulderVals.length).toFixed(1));
+                checkOne("posterior", "Neck & Shoulder", "Posterior", "neckShoulderPosterior", neckShoulderAvg, "L-R", s.headPositionTilt || s.shoulderTilt);
+            }
+            checkOne("posterior", "Hip", "Posterior", "pelvicTiltPosterior", m.pelvicTiltPosterior, "L-R", s.pelvicTiltPosterior);
+            checkOne("posterior", "Ankle", "Posterior", "ankleAlignmentPosterior", m.ankleAlignmentPosterior, "L-R", s.ankleAlignmentPosterior);
         }
 
         [["leftLateral", "Left Lateral", views.leftLateral, "Left"], ["rightLateral", "Right Lateral", views.rightLateral, "Right"]].forEach(([sectionKey, label, v, side]) => {
             if (!v || v.outOfFrame) return;
             const m = v.metrics;
-            checkOne(sectionKey, "Neck / Head", label, "headPositionForward", m.headPositionForward, side);
-            checkOne(sectionKey, "Trunk Lean", label, "trunkSagittal", m.trunkSagittal, side);
-            checkOne(sectionKey, "Hip", label, "hipSagittal", m.hipSagittal, side);
-            checkOne(sectionKey, "Knee", label, "kneeSagittal", m.kneeSagittal, side);
-            checkOne(sectionKey, "Ankle", label, "ankleSagittal", m.ankleSagittal, side);
+            checkOne(sectionKey, "Neck / Head", label, "headPositionForward", m.headPositionForward, side, side);
+            checkOne(sectionKey, "Trunk Lean", label, "trunkSagittal", m.trunkSagittal, side, side);
+            checkOne(sectionKey, "Hip", label, "hipSagittal", m.hipSagittal, side, side);
+            checkOne(sectionKey, "Knee", label, "kneeSagittal", m.kneeSagittal, side, side);
+            checkOne(sectionKey, "Ankle", label, "ankleSagittal", m.ankleSagittal, side, side);
         });
 
         // Compute Overall Risk Category by averaging every individual
@@ -861,7 +976,11 @@
                     fixed: standards.refRange, // fixed/normal reference angle range
                     reference: standards.refRange,
                     deviation: parseFloat(diff.toFixed(1)),
-                    status: status
+                    status: status,
+                    // These rows are already measured per-limb (Left/Right), so
+                    // the deviated side is simply the limb itself; "Center"
+                    // rows (e.g. Trunk Lean) have no left/right side.
+                    deviatedSide: (side === "Left" || side === "Right") ? side : null
                 };
             };
 
@@ -897,13 +1016,21 @@
                 devCount++;
                 let level = (sym.kneeDev > 20 || sym.hipDev > 20) ? "Significant Deviation" : "Mild Deviation";
                 if (level === "Significant Deviation") sigDevCount++;
+                // The "deviated side" for a bilateral-symmetry mismatch is
+                // whichever limb sits further from the standing/squat knee
+                // reference band -- i.e. the leg that's actually out of
+                // range, not just "different from the other one".
+                const kneeStd = isSquatting ? REFERENCE_STANDARDS.knee : { minNormal: 165, maxNormal: 180 };
+                const distFromRange = (val) => val < kneeStd.minNormal ? (kneeStd.minNormal - val) : (val > kneeStd.maxNormal ? (val - kneeStd.maxNormal) : 0);
+                const symmetryDeviatedSide = distFromRange(angles.leftKnee) >= distFromRange(angles.rightKnee) ? "Left" : "Right";
                 detailedDevs.push({
                     joint: "Bilateral Symmetry",
                     side: "Compare",
                     angle: sym.kneeDev,
                     reference: "< 8° diff",
                     deviation: sym.kneeDev,
-                    status: level
+                    status: level,
+                    deviatedSide: symmetryDeviatedSide
                 });
             }
 
