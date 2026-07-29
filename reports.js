@@ -305,18 +305,24 @@
             doc.setTextColor(79, 70, 229);
             doc.text(heading, MARGIN, currentY);
 
+            // "Deviated Side" only makes clinical sense once a row is actually
+            // flagged as a deviation; Normal rows show "-" regardless of what
+            // was computed under the hood.
+            const deviatedSideDisplay = (m) => (m.status !== "Normal" && m.deviatedSide) ? m.deviatedSide : "-";
+
             const tableBody = rows.map(m => [
                 m.joint,
                 m.side,
                 `${m.fixed || m.reference}`,
                 `${m.angle}°`,
                 `${m.deviation}°`,
+                deviatedSideDisplay(m),
                 m.status
             ]);
 
             doc.autoTable({
                 startY: currentY + 8,
-                head: [['Joint Parameter', 'Side', 'Fixed / Normal Angle', 'Measured Angle', 'Deviation', 'Status']],
+                head: [['Joint Parameter', 'Side', 'Fixed / Normal Angle', 'Measured Angle', 'Deviation', 'Deviated Side', 'Status']],
                 body: tableBody,
                 theme: 'striped',
                 styles: { cellPadding: 5, fontSize: 8.5, textColor: [31, 41, 55] },
@@ -325,7 +331,7 @@
                 margin: { left: MARGIN, right: MARGIN },
                 tableWidth: CONTENT_W,
                 didParseCell: function (cellData) {
-                    if (cellData.section === 'body' && cellData.column.index === 5) {
+                    if (cellData.section === 'body' && cellData.column.index === 6) {
                         const status = cellData.cell.raw || "";
                         if (status.includes('Significant')) {
                             cellData.cell.styles.textColor = [220, 38, 38];
