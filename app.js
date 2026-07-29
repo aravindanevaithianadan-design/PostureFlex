@@ -1379,10 +1379,10 @@ function BPT1Module({
         // Posterior now both come from the static-view evaluator's grouped
         // output, so their parameter lists line up 1-for-1.
         const viewSections = [
-            { label: "Anterior View", rows: staticEval.viewSections?.anterior || [] },
-            { label: "Posterior View", rows: staticEval.viewSections?.posterior || [] },
-            { label: "Lateral View (Left)", rows: staticEval.viewSections?.leftLateral || [] },
-            { label: "Lateral View (Right)", rows: staticEval.viewSections?.rightLateral || [] }
+            { label: "Anterior", rows: staticEval.viewSections?.anterior || [] },
+            { label: "Posterior", rows: staticEval.viewSections?.posterior || [] },
+            { label: "Left Lateral", rows: staticEval.viewSections?.leftLateral || [] },
+            { label: "Right Lateral", rows: staticEval.viewSections?.rightLateral || [] }
         ];
 
         const combinedInterpretation = staticEval.measurements.length > 0
@@ -2363,11 +2363,13 @@ function drawBPT1ViewOverlay(ctx, viewKey, points) {
         }
         line(points.earL, points.earR, "#fb923c");
         line(points.acromionL, points.acromionR, "rgba(99,102,241,0.9)");
-        line(points.asisL, points.asisR, "rgba(236,72,153,0.9)");
+        // Module 1 (BPT1) ONLY: Hip Level (ASIS L/R) line + dots removed from
+        // the live Anterior overlay by request. The squat-depth guide above
+        // still uses points.asisL/asisR internally for its own hip/knee
+        // level calculation -- that is a separate feature and is untouched.
         line(points.kneeL, points.kneeR, "rgba(16,185,129,0.9)");
         dot(points.earL, "#fb923c"); dot(points.earR, "#fb923c");
         dot(points.acromionL, "white"); dot(points.acromionR, "white");
-        dot(points.asisL, "white"); dot(points.asisR, "white");
         dot(points.kneeL, "white"); dot(points.kneeR, "white");
         dot(points.sternum, "#fbbf24"); dot(points.umbilicus, "#fbbf24"); dot(points.patellaeCenter, "#fbbf24");
     } else if (viewKey === "posterior") {
@@ -2452,6 +2454,34 @@ function drawBPT2ViewOverlay(ctx, viewKey, points) {
         ctx.lineWidth = 3;
         ctx.stroke();
     };
+    // Clinical-style "measurement reticle" (ring + crosshair ticks + center dot),
+    // used to flag ankle/toe joints as precision grid-alignment points --
+    // matching the reticle style used by Module 1's drawBPT1ViewOverlay.
+    // Module 2 (BPT2) addition, added to all 4 views below.
+    const reticle = (p, color) => {
+        if (!p) return;
+        const x = mx(p), y = my(p);
+        const r = 9;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x - r - 6, y); ctx.lineTo(x - r + 3, y);
+        ctx.moveTo(x + r - 3, y); ctx.lineTo(x + r + 6, y);
+        ctx.moveTo(x, y - r - 6); ctx.lineTo(x, y - r + 3);
+        ctx.moveTo(x, y + r - 3); ctx.lineTo(x, y + r + 6);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x, y, 2.5, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.fill();
+    };
+    // Module 2 (BPT2) addition: shared ankle/toe grid-alignment palette,
+    // matching Module 1's colors (Module 1 is left completely unchanged).
+    const ANKLE_COLOR = "#facc15"; // yellow
+    const TOE_COLOR = "#38bdf8";   // sky blue
 
     // Vertical "ideal spinal alignment" guide (green line + dot markers +
     // CORRECT POSTURE badge), matching the clinical reference mock, for all
@@ -2468,20 +2498,33 @@ function drawBPT2ViewOverlay(ctx, viewKey, points) {
         dot(points.asisL, "white"); dot(points.asisR, "white");
         dot(points.kneeL, "white"); dot(points.kneeR, "white");
         dot(points.sternum, "#fbbf24"); dot(points.umbilicus, "#fbbf24"); dot(points.patellaeCenter, "#fbbf24");
+        // Module 2 (BPT2) addition: ankle grid-alignment (yellow reticle) +
+        // toe/forefoot grid-alignment (sky-blue reticle), ankle -> toe segment.
+        line(points.ankleL, points.ankleR, ANKLE_COLOR);
+        reticle(points.ankleL, ANKLE_COLOR); reticle(points.ankleR, ANKLE_COLOR);
+        line(points.ankleL, points.footL, TOE_COLOR);
+        line(points.ankleR, points.footR, TOE_COLOR);
+        reticle(points.footL, TOE_COLOR); reticle(points.footR, TOE_COLOR);
     } else if (viewKey === "posterior") {
         line(points.earL, points.earR, "#fb923c");
         line(points.acromionL, points.acromionR, "rgba(99,102,241,0.9)");
         line(points.scapulaInferiorL, points.scapulaInferiorR, "#60a5fa");
         line(points.psisL, points.psisR, "rgba(236,72,153,0.9)");
         line(points.kneeL, points.kneeR, "rgba(16,185,129,0.9)");
-        line(points.ankleL, points.ankleR, "rgba(250,204,21,0.9)");
         dot(points.earL, "#fb923c"); dot(points.earR, "#fb923c");
         dot(points.acromionL, "white"); dot(points.acromionR, "white");
         dot(points.psisL, "white"); dot(points.psisR, "white");
         dot(points.kneeL, "white"); dot(points.kneeR, "white");
-        dot(points.ankleL, "white"); dot(points.ankleR, "white");
         dot(points.c7, "#fbbf24");
         dot(points.scapulaInferiorL, "#60a5fa"); dot(points.scapulaInferiorR, "#60a5fa");
+        // Module 2 (BPT2) addition: ankle grid-alignment (yellow reticle,
+        // replacing the previous plain line+dot) + toe/forefoot grid-alignment
+        // (sky-blue reticle), ankle -> toe segment.
+        line(points.ankleL, points.ankleR, ANKLE_COLOR);
+        reticle(points.ankleL, ANKLE_COLOR); reticle(points.ankleR, ANKLE_COLOR);
+        line(points.ankleL, points.footL, TOE_COLOR);
+        line(points.ankleR, points.footR, TOE_COLOR);
+        reticle(points.footL, TOE_COLOR); reticle(points.footR, TOE_COLOR);
     } else if (viewKey === "rightLateral" || viewKey === "leftLateral") {
         const p2 = points.condyle || points.epicondyle;
         line(points.headRef, points.acromion, "#fb923c");
@@ -2489,6 +2532,13 @@ function drawBPT2ViewOverlay(ctx, viewKey, points) {
         line(points.trochanter, p2, "rgba(16,185,129,0.9)");
         dot(points.headRef, "#fb923c");
         dot(points.acromion, "white"); dot(points.trochanter, "white"); dot(p2, "white");
+        // Module 2 (BPT2) addition: ankle grid-alignment (knee -> ankle
+        // segment, yellow reticle) + toe/forefoot grid-alignment (ankle ->
+        // toe segment, sky-blue reticle).
+        line(p2, points.ankle, ANKLE_COLOR);
+        reticle(points.ankle, ANKLE_COLOR);
+        line(points.ankle, points.foot, TOE_COLOR);
+        reticle(points.foot, TOE_COLOR);
     }
 }
 // Reports View (List past reports and click preview)
@@ -2726,13 +2776,17 @@ function ReportCanvasPreview({
     const viewSections = (reportData.viewSections || []).filter(s => s.rows && s.rows.length > 0);
     const interpretation = reportData.interpretation || "";
     const recommendations = reportData.recommendations || [];
+    // "Deviated Side" only makes clinical sense once a row is actually
+    // flagged as a deviation; Normal rows show "-" regardless of what was
+    // computed under the hood.
+    const deviatedSideDisplay = m => (m.status !== "Normal" && m.deviatedSide) ? m.deviatedSide : "-";
     const renderMeasurementTable = rows => /*#__PURE__*/React.createElement("table", {
         className: "report-table"
-    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Parameter"), /*#__PURE__*/React.createElement("th", null, "Side"), /*#__PURE__*/React.createElement("th", null, "Fixed / Normal Angle"), /*#__PURE__*/React.createElement("th", null, "Measured Angle"), /*#__PURE__*/React.createElement("th", null, "Deviation"), /*#__PURE__*/React.createElement("th", null, "Status"))), /*#__PURE__*/React.createElement("tbody", null, rows.map((m, idx) => /*#__PURE__*/React.createElement("tr", {
+    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Parameter"), /*#__PURE__*/React.createElement("th", null, "Side"), /*#__PURE__*/React.createElement("th", null, "Fixed / Normal Angle"), /*#__PURE__*/React.createElement("th", null, "Measured Angle"), /*#__PURE__*/React.createElement("th", null, "Deviation"), /*#__PURE__*/React.createElement("th", null, "Deviated Side"), /*#__PURE__*/React.createElement("th", null, "Status"))), /*#__PURE__*/React.createElement("tbody", null, rows.map((m, idx) => /*#__PURE__*/React.createElement("tr", {
         key: idx
     }, /*#__PURE__*/React.createElement("td", null, m.joint), /*#__PURE__*/React.createElement("td", null, m.side), /*#__PURE__*/React.createElement("td", null, m.fixed || m.reference), /*#__PURE__*/React.createElement("td", {
         style: { fontWeight: 600 }
-    }, Math.round(m.angle), "°"), /*#__PURE__*/React.createElement("td", null, m.deviation, "°"), /*#__PURE__*/React.createElement("td", {
+    }, Math.round(m.angle), "°"), /*#__PURE__*/React.createElement("td", null, m.deviation, "°"), /*#__PURE__*/React.createElement("td", null, deviatedSideDisplay(m)), /*#__PURE__*/React.createElement("td", {
         className: m.status.includes("Significant") ? "text-danger" : m.status.includes("Mild") ? "text-warning" : "text-success"
     }, m.status)))));
     return /*#__PURE__*/React.createElement("div", {
