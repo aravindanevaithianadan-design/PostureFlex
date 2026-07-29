@@ -181,10 +181,7 @@ body::after {
     /* background-attachment:fixed is a major scroll-jank cause on mobile
        browsers (repaints the background on every scroll frame instead of
        letting the compositor handle it). Normal scrolling attachment here. */
-    body,
-    .hero-card,
-    .stat-card,
-    .module-card {
+    body {
         background-attachment: scroll;
     }
 
@@ -192,7 +189,8 @@ body::after {
        -- cheap individually, but every running animation still costs a
        ticking compositor/paint job on a phone, so switch them off there. */
     .badge-danger,
-    .login-logo {
+    .login-logo,
+    .hero-card::after {
         animation: none !important;
     }
 
@@ -3114,19 +3112,15 @@ body::after {
 .hero-card,
 .stat-card,
 .module-card {
-    /* All three share one continuous gradient "canvas" pinned to the
-       viewport (background-attachment: fixed + a viewport-sized image)
-       instead of each box stretching its own copy of the same three
-       color-stops across its own width/height. Previously that made the
-       wide hero banner read as a dramatic red-to-black sweep while the
-       narrower, shorter stat/module cards -- same three colors, just
-       squeezed into a smaller, differently-shaped box -- looked like a
-       flatter, muddier brown. Now every card is a "window" onto the exact
-       same background, so the colour genuinely matches wherever it sits. */
-    background-image: linear-gradient(135deg, #7a2020 0%, #4a1212 65%, #2c0a0a 100%);
-    background-attachment: fixed;
-    background-size: 100vw 100vh;
-    background-position: 0 0;
+    /* Reverted the previous background-attachment:fixed "shared canvas"
+       trick -- it caused visible lag/jank on mobile (fixed-attachment
+       backgrounds force a full repaint on every scroll frame, which is
+       expensive on phone GPUs, especially across three different card
+       types on the same screen). Back to a plain, cheap per-element
+       gradient. All three still use the identical color stops, so they
+       read as the same color family -- just each box scales its own
+       copy rather than sharing one fixed background layer. */
+    background: linear-gradient(135deg, #7a2020 0%, #4a1212 65%, #2c0a0a 100%);
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 10px 30px -8px rgba(60, 15, 15, 0.35);
 }
@@ -3134,7 +3128,7 @@ body::after {
 .hero-card:hover,
 .stat-card:hover,
 .module-card:hover {
-    background-image: linear-gradient(135deg, #872626 0%, #521515 65%, #330b0b 100%);
+    background: linear-gradient(135deg, #872626 0%, #521515 65%, #330b0b 100%);
 }
 
 .hero-card h2 {
