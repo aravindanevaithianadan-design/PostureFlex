@@ -2628,7 +2628,7 @@ function ReportsView({
             alignItems: "center"
         }
     }, /*#__PURE__*/React.createElement("button", {
-        className: "btn btn-secondary",
+        className: "btn btn-secondary btn-back-archive",
         onClick: onClosePreview
     }, "Back to Archive"), /*#__PURE__*/React.createElement("button", {
         className: "btn btn-primary",
