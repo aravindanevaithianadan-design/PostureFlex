@@ -677,6 +677,7 @@ h6 {
 .btn-primary {
     background: linear-gradient(135deg, var(--primary), var(--secondary));
     color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
     box-shadow: 0 4px 14px 0 rgba(214, 69, 95, 0.28);
 }
 
@@ -3194,7 +3195,7 @@ body::after {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #7a2020 0%, #5c1414 60%, #d99a3a 130%);
+    background: linear-gradient(135deg, #7a2020 0%, #5c1414 60%, #a8752c 150%);
 }
 
 .btn-primary:hover {
