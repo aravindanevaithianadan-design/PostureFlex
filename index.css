@@ -3210,3 +3210,36 @@ body::after {
 .sidebar {
     background: linear-gradient(180deg, #7a2020 0%, #4a1212 65%, #2c0a0a 100%);
 }
+
+/* ===========================================================================
+   MOBILE HEADER CONTROL VISIBILITY (cream theme fix)
+   The hamburger menu button and the "Back to Archive" button both used the
+   dark-theme's near-white text/icon color (--text-main) and a translucent
+   near-white background. That combination was invisible once the page
+   background became light cream, because a white icon/label on a near-white
+   chip on a cream page has almost no contrast. Both are given explicit dark,
+   on-cream colors here rather than changing --text-main globally, since
+   --text-main is still correctly used for light text on the dark sidebar
+   and dark cards elsewhere in the app.
+   =========================================================================== */
+.hamburger-btn {
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(122, 32, 32, 0.25);
+    color: #4a1414;
+}
+
+.hamburger-btn:hover {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(122, 32, 32, 0.4);
+}
+
+.btn-back-archive {
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(122, 32, 32, 0.25);
+    color: #4a1414;
+}
+
+.btn-back-archive:hover {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(122, 32, 32, 0.4);
+}
