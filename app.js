@@ -2709,7 +2709,7 @@ function SettingsView({
         }
     }, /*#__PURE__*/React.createElement("button", {
         type: "button",
-        className: "btn btn-primary",
+        className: "btn btn-primary btn-download-backup",
         onClick: handleExport
     }, "Download Backup (JSON)"), /*#__PURE__*/React.createElement("button", {
         type: "button",
