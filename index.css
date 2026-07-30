@@ -3244,3 +3244,18 @@ body::after {
     background: rgba(255, 255, 255, 0.8);
     border-color: rgba(122, 32, 32, 0.4);
 }
+
+/* Download Backup button: solid gold/amber, distinct from the burgundy
+   primary buttons elsewhere. Dark burgundy text/shadow keeps it legible
+   against the light amber fill (white text would be low-contrast here). */
+.btn-download-backup {
+    background: #d99a3a;
+    color: #3d1a06;
+    text-shadow: none;
+    box-shadow: 0 4px 14px 0 rgba(217, 154, 58, 0.35);
+}
+
+.btn-download-backup:hover {
+    background: #e8ac52;
+    box-shadow: 0 6px 20px 0 rgba(217, 154, 58, 0.5);
+}
