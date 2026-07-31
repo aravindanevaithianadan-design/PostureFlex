@@ -3279,3 +3279,23 @@ body::after {
     background: rgba(122, 32, 32, 0.12);
     border-color: rgba(122, 32, 32, 0.4);
 }
+
+/* ===========================================================================
+   MODAL CLOSE ("X") BUTTON VISIBILITY
+   The "New Patient Session" modal's close button uses .btn-secondary +
+   .btn-icon, but the modal card itself keeps the dark burgundy "glass"
+   background (unlike the light cream page behind it). The cream-friendly
+   dark-text .btn-secondary styling above is dark-on-dark here and nearly
+   invisible. This modal is shared by both assessment modules (BPT1 live
+   squat and BPT2 posture scan), so fixing it here covers both.
+   =========================================================================== */
+.modal-header .btn-icon {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #f6e9ec;
+    font-weight: 700;
+}
+
+.modal-header .btn-icon:hover {
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.4);
