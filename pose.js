@@ -502,13 +502,38 @@
         const measurements = [];
         const viewSections = { anterior: [], posterior: [], rightLateral: [], leftLateral: [] };
 
+        // Most Module 2 lateral metrics (headPositionForward, trunkSagittal,
+        // thighSagittal, sagittalCurvature) are "tilt from true vertical"
+        // magnitudes -- computed via calculateAngleFromVertical, which grows
+        // as the segment tips away from 0 (perfectly upright) in EITHER
+        // direction, and their minNormal is 0, so the only breach that can
+        // ever fire is "too much tilt", which for a standing sagittal-plane
+        // screen is reported as "Front" (matches their names, e.g. "Forward
+        // Head Posture").
+        //
+        // ankleSagittal is different: it's a true 3-point joint angle
+        // (condyle-ankle-foot), where the angle SHRINKS as dorsiflexion
+        // increases (per the same knee/hip/ankle interior-angle convention
+        // documented above REFERENCE_STANDARDS). More dorsiflexion pulls the
+        // shin/knee forward over the foot, so a reading BELOW the lower
+        // bound (more flexed/dorsiflexed than normal) is the "Front"
+        // deviation, while a reading ABOVE the upper bound (straighter,
+        // less dorsiflexion) is "Back". This is the inverse of the
+        // tilt-magnitude metrics above, so it's tracked separately here.
+        const LATERAL_INVERTED_DIRECTION_METRICS = new Set(["ankleSagittal"]);
+
         const checkOne = (sectionKey, viewLabel, metricKey, val, side, deviatedSide) => {
             const standards = STATIC_STANDARDS[metricKey];
             if (!standards || val === undefined || val === null) return;
             let status = "Normal";
             let diff = 0;
+            let breachedAbove = false;
             if (val > standards.maxNormal) {
                 diff = val - standards.maxNormal;
+                status = diff > standards.warningThreshold ? "Significant Deviation" : "Mild Deviation";
+                breachedAbove = true;
+            } else if (val < standards.minNormal) {
+                diff = standards.minNormal - val;
                 status = diff > standards.warningThreshold ? "Significant Deviation" : "Mild Deviation";
             }
             if (status !== "Normal") {
@@ -519,6 +544,16 @@
             // back to the original generic label if no mapping exists (so
             // nothing silently disappears from the report).
             const clinicalLabel = MODULE2_CLINICAL_LABELS[sectionKey]?.[metricKey];
+            // Right/Left Lateral rows come from a single side-on capture, so
+            // "Deviated Side" for them reports the sagittal-plane DIRECTION
+            // of the deviation (Front/Back) instead of a Left/Right limb.
+            // Anterior/Posterior rows are untouched and keep using the
+            // passed-in Left/Right deviatedSide.
+            const isLateralSection = sectionKey === "rightLateral" || sectionKey === "leftLateral";
+            const isInverted = LATERAL_INVERTED_DIRECTION_METRICS.has(metricKey);
+            const lateralDirection = (isLateralSection && status !== "Normal")
+                ? (isInverted ? (breachedAbove ? "Back" : "Front") : (breachedAbove ? "Front" : "Back"))
+                : null;
             const row = {
                 joint: clinicalLabel ? clinicalLabel : `${viewLabel} – ${standards.name}`,
                 side: side || "Compare",
@@ -527,10 +562,11 @@
                 reference: standards.refRange,
                 deviation: parseFloat(diff.toFixed(1)),
                 status: status,
-                // Which side (Left/Right) the deviation is on, only meaningful
-                // when status !== "Normal" -- consumers should display "-" for
-                // Normal rows regardless of what's stored here.
-                deviatedSide: deviatedSide || null
+                // Which side (Left/Right) -- or, for lateral views,
+                // Front/Back direction -- the deviation is on. Only
+                // meaningful when status !== "Normal"; consumers should
+                // display "-" for Normal rows regardless of what's stored here.
+                deviatedSide: isLateralSection ? lateralDirection : (deviatedSide || null)
             };
             measurements.push(row);
             if (viewSections[sectionKey]) viewSections[sectionKey].push(row);
@@ -571,21 +607,26 @@
         }
         if (views.rightLateral && !views.rightLateral.outOfFrame) {
             const m = views.rightLateral.metrics;
-            checkOne("rightLateral", "Right Lateral", "headPositionForward", m.headPositionForward, "Right", "Right");
-            checkOne("rightLateral", "Right Lateral", "trunkSagittal", m.trunkSagittal, "Right", "Right");
-            checkOne("rightLateral", "Right Lateral", "thighSagittal", m.thighSagittal, "Right", "Right");
+            // The last arg (deviatedSide) is ignored by checkOne for lateral
+            // sections -- it derives Front/Back internally from the reading
+            // vs. the reference range. Passed as null here for clarity.
+            checkOne("rightLateral", "Right Lateral", "headPositionForward", m.headPositionForward, "Right", null);
+            checkOne("rightLateral", "Right Lateral", "trunkSagittal", m.trunkSagittal, "Right", null);
+            checkOne("rightLateral", "Right Lateral", "thighSagittal", m.thighSagittal, "Right", null);
             // Module 2 (BPT2) addition: ankle dorsiflexion (knee-ankle-toe) reading.
-            checkOne("rightLateral", "Right Lateral", "ankleSagittal", m.ankleSagittal, "Right", "Right");
-            checkOne("rightLateral", "Right Lateral", "sagittalCurvature", m.sagittalCurvature, "Right", "Right");
+            checkOne("rightLateral", "Right Lateral", "ankleSagittal", m.ankleSagittal, "Right", null);
+            checkOne("rightLateral", "Right Lateral", "sagittalCurvature", m.sagittalCurvature, "Right", null);
         }
         if (views.leftLateral && !views.leftLateral.outOfFrame) {
             const m = views.leftLateral.metrics;
-            checkOne("leftLateral", "Left Lateral", "headPositionForward", m.headPositionForward, "Left", "Left");
-            checkOne("leftLateral", "Left Lateral", "trunkSagittal", m.trunkSagittal, "Left", "Left");
-            checkOne("leftLateral", "Left Lateral", "thighSagittal", m.thighSagittal, "Left", "Left");
+            // Same as Right Lateral above: deviatedSide arg is ignored for
+            // lateral sections, derived internally as Front/Back instead.
+            checkOne("leftLateral", "Left Lateral", "headPositionForward", m.headPositionForward, "Left", null);
+            checkOne("leftLateral", "Left Lateral", "trunkSagittal", m.trunkSagittal, "Left", null);
+            checkOne("leftLateral", "Left Lateral", "thighSagittal", m.thighSagittal, "Left", null);
             // Module 2 (BPT2) addition: ankle dorsiflexion (knee-ankle-toe) reading.
-            checkOne("leftLateral", "Left Lateral", "ankleSagittal", m.ankleSagittal, "Left", "Left");
-            checkOne("leftLateral", "Left Lateral", "sagittalCurvature", m.sagittalCurvature, "Left", "Left");
+            checkOne("leftLateral", "Left Lateral", "ankleSagittal", m.ankleSagittal, "Left", null);
+            checkOne("leftLateral", "Left Lateral", "sagittalCurvature", m.sagittalCurvature, "Left", null);
         }
 
         // Compute Overall Risk Category by averaging every individual
@@ -625,14 +666,38 @@
         // order/group rows in the report (Neck/Head, Shoulder, Trunk Symmetry,
         // Trunk Lean, Hip, Knee, Ankle, Heel); "joint" stays as the detailed
         // metric name for interpretation/recommendation text lookups.
+        // trunkSagittal and hipSagittal are "tilt from true vertical"
+        // magnitudes (calculateAngleFromVertical) representing forward lean
+        // during the squat -- exceeding the upper bound is excess forward
+        // lean ("Front"), falling below the lower bound is insufficient
+        // forward lean / staying too upright ("Back").
+        //
+        // kneeSagittal and ankleSagittal are true 3-point joint angles
+        // (trochanter-knee-ankle / condyle-ankle-foot). Per the same
+        // interior-angle convention documented above REFERENCE_STANDARDS
+        // (angle SHRINKS as flexion/dorsiflexion increases), a reading BELOW
+        // their lower bound means MORE flexion/dorsiflexion than normal --
+        // the knee or shin traveling forward -- so that's the "Front"
+        // deviation here, the inverse of the tilt-magnitude metrics above.
+        //
+        // headPositionForward here is being used as a craniocervical-angle
+        // (CVA) proxy (its 50°-55° range matches real CVA values, unlike
+        // Module 2's 0°-12° "tilt" version of the same metric name). Clinical
+        // convention for CVA is the opposite of a plain tilt magnitude: a
+        // LOWER angle indicates MORE forward head posture, so a reading
+        // below the lower bound is the "Front" deviation here too.
+        const LATERAL_INVERTED_DIRECTION_METRICS = new Set(["kneeSagittal", "ankleSagittal", "headPositionForward"]);
+
         const checkOne = (sectionKey, category, viewLabel, metricKey, val, side, deviatedSide) => {
             const standards = MODULE1_STATIC_STANDARDS[metricKey];
             if (!standards || val === undefined || val === null) return;
             let status = "Normal";
             let diff = 0;
+            let breachedAbove = false;
             if (val > standards.maxNormal) {
                 diff = val - standards.maxNormal;
                 status = diff > standards.warningThreshold ? "Significant Deviation" : "Mild Deviation";
+                breachedAbove = true;
             } else if (val < standards.minNormal) {
                 diff = standards.minNormal - val;
                 status = diff > standards.warningThreshold ? "Significant Deviation" : "Mild Deviation";
@@ -641,6 +706,16 @@
                 devCount++;
                 if (status === "Significant Deviation") sigDevCount++;
             }
+            // Right/Left Lateral rows come from a single side-on capture, so
+            // "Deviated Side" for them reports the sagittal-plane DIRECTION
+            // of the deviation (Front/Back) instead of a Left/Right limb.
+            // Anterior/Posterior rows are untouched and keep using the
+            // passed-in Left/Right deviatedSide.
+            const isLateralSection = sectionKey === "rightLateral" || sectionKey === "leftLateral";
+            const isInverted = LATERAL_INVERTED_DIRECTION_METRICS.has(metricKey);
+            const lateralDirection = (isLateralSection && status !== "Normal")
+                ? (isInverted ? (breachedAbove ? "Back" : "Front") : (breachedAbove ? "Front" : "Back"))
+                : null;
             const row = {
                 category: category,
                 joint: `${viewLabel} – ${standards.name}`,
@@ -650,10 +725,11 @@
                 reference: standards.refRange,
                 deviation: parseFloat(diff.toFixed(1)),
                 status: status,
-                // Which side (Left/Right) the deviation is on, only meaningful
-                // when status !== "Normal" -- consumers should display "-" for
-                // Normal rows regardless of what's stored here.
-                deviatedSide: deviatedSide || null
+                // Which side (Left/Right) -- or, for lateral views,
+                // Front/Back direction -- the deviation is on. Only
+                // meaningful when status !== "Normal"; consumers should
+                // display "-" for Normal rows regardless of what's stored here.
+                deviatedSide: isLateralSection ? lateralDirection : (deviatedSide || null)
             };
             measurements.push(row);
             if (viewSections[sectionKey]) viewSections[sectionKey].push(row);
@@ -699,14 +775,19 @@
             checkOne("posterior", "Ankle", "Posterior", "ankleAlignmentPosterior", m.ankleAlignmentPosterior, "L-R", s.ankleAlignmentPosterior);
         }
 
+        // The last arg (deviatedSide) is ignored by checkOne for lateral
+        // sections -- it derives Front/Back internally from the reading vs.
+        // the reference range (the "Side" column still correctly shows
+        // "Left"/"Right" via the `side` variable below). Passed as null here
+        // for clarity.
         [["leftLateral", "Left Lateral", views.leftLateral, "Left"], ["rightLateral", "Right Lateral", views.rightLateral, "Right"]].forEach(([sectionKey, label, v, side]) => {
             if (!v || v.outOfFrame) return;
             const m = v.metrics;
-            checkOne(sectionKey, "Neck / Head", label, "headPositionForward", m.headPositionForward, side, side);
-            checkOne(sectionKey, "Trunk Lean", label, "trunkSagittal", m.trunkSagittal, side, side);
-            checkOne(sectionKey, "Hip", label, "hipSagittal", m.hipSagittal, side, side);
-            checkOne(sectionKey, "Knee", label, "kneeSagittal", m.kneeSagittal, side, side);
-            checkOne(sectionKey, "Ankle", label, "ankleSagittal", m.ankleSagittal, side, side);
+            checkOne(sectionKey, "Neck / Head", label, "headPositionForward", m.headPositionForward, side, null);
+            checkOne(sectionKey, "Trunk Lean", label, "trunkSagittal", m.trunkSagittal, side, null);
+            checkOne(sectionKey, "Hip", label, "hipSagittal", m.hipSagittal, side, null);
+            checkOne(sectionKey, "Knee", label, "kneeSagittal", m.kneeSagittal, side, null);
+            checkOne(sectionKey, "Ankle", label, "ankleSagittal", m.ankleSagittal, side, null);
         });
 
         // Compute Overall Risk Category by averaging every individual
