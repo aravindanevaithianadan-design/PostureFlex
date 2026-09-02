@@ -792,7 +792,7 @@ function BPT1Module({
         leftKnee: 180,
         rightKnee: 180,
         avgTrunk: 0,
-        leftAnkle: 90
+        leftAnkle: 0
     });
     const [assessmentRecord, setAssessmentRecord] = useState(null);
     const [reportPreviewData, setReportPreviewData] = useState(null);
