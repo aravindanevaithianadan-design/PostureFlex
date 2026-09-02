@@ -39,8 +39,12 @@
         // Chart: Trunk Lean 30-45deg normal, abnormal >45-50deg or <20-25deg
         // (same convention, no conversion needed)
         trunk: { name: "Trunk Lean", refRange: "25° - 50°", minNormal: 25, maxNormal: 50, warningThreshold: 10 },
-        // Chart: Ankle Dorsiflexion 35-40deg normal, abnormal <30deg -> interior 50-55deg
-        ankle: { name: "Ankle Alignment", refRange: "47° - 58°", minNormal: 47, maxNormal: 58, warningThreshold: 10 }
+        // Ankle Dorsiflexion, expressed directly in true clinical degrees
+        // (20deg-35deg normal, per squat-team spec). lAnkleAngle/rAnkleAngle
+        // are now converted from the raw knee-ankle-foot interior angle into
+        // actual dorsiflexion degrees at the point they're calculated below,
+        // so this range needs no further conversion.
+        ankle: { name: "Ankle Alignment", refRange: "20° - 35°", minNormal: 20, maxNormal: 35, warningThreshold: 10 }
     };
     // Calculate angle ABC in degrees where B is vertex
     function calculateAngle(A, B, C) {
@@ -957,8 +961,20 @@
 
             // 4. Calculate Ankle Dorsiflexion (Knee-Ankle-Foot)
             // Note: If foot index is unavailable, we estimate relative to floor vertical
-            const lAnkleAngle = calculateAngle(lKnee, lAnkle, lFoot);
-            const rAnkleAngle = calculateAngle(rKnee, rAnkle, rFoot);
+            // calculateAngle(knee, ankle, foot) returns the raw INTERIOR angle
+            // between the shin and the foot -- ~90deg when standing neutral
+            // (shin vertical, foot horizontal) and shrinking as the shin
+            // tips forward over the foot during a squat. True clinical ankle
+            // dorsiflexion is measured as the deviation FROM that 90deg
+            // neutral position, so it must be converted (90 - rawAngle)
+            // before it's shown or compared against REFERENCE_STANDARDS.ankle
+            // (20-35deg). Previously the raw ~90deg interior angle was used
+            // directly, which is why the UI was reading ~90deg instead of a
+            // true dorsiflexion value.
+            const rawLAnkleAngle = calculateAngle(lKnee, lAnkle, lFoot);
+            const rawRAnkleAngle = calculateAngle(rKnee, rAnkle, rFoot);
+            const lAnkleAngle = parseFloat(Math.max(0, 90 - rawLAnkleAngle).toFixed(1));
+            const rAnkleAngle = parseFloat(Math.max(0, 90 - rawRAnkleAngle).toFixed(1));
             // Left/Right Symmetry Check
             const kneeSymmetryDev = Math.abs(lKneeAngle - rKneeAngle);
             const hipSymmetryDev = Math.abs(lHipAngle - rHipAngle);
