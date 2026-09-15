@@ -515,7 +515,8 @@ function IntakeModal({
             } catch (e) {
                 seq = 1;
             }
-            setPatientId(`${dd}${mm}${String(seq).padStart(2, "0")}`);
+            const modulePrefix = moduleTarget === "bpt1" ? "S-" : "P-";
+            setPatientId(`${modulePrefix}${dd}${mm}${String(seq).padStart(2, "0")}`);
         })();
     }, []);
     const handleSubmit = e => {
@@ -788,18 +789,29 @@ function BPT1Module({
     const [trackingConfidence, setTrackingConfidence] = useState(0);
     const [outOfFrame, setOutOfFrame] = useState(true);
     const [squatState, setSquatState] = useState("Standing");
+    // Live clinical values only -- see the MODULE 1 CLINICAL ANGLE MODEL in
+    // pose.js: 0deg = anatomical neutral, and knee/hip/ankle are range-of-motion
+    // values converted from the raw interior camera angles (which pose.js keeps
+    // separately under analysis.rawAngles for diagnostics).
     const [liveAngles, setLiveAngles] = useState({
-        leftKnee: 180,
-        rightKnee: 180,
-        avgTrunk: 0,
-        leftAnkle: 0
+        leftKneeFlexion: 0,
+        rightKneeFlexion: 0,
+        leftHipFlexion: 0,
+        rightHipFlexion: 0,
+        trunkLean: 0,
+        leftAnkleDorsiflexion: 0,
+        rightAnkleDorsiflexion: 0
     });
+    const [liveDepthPct, setLiveDepthPct] = useState(0);
+    const [liveDepthRatio, setLiveDepthRatio] = useState(0);
     const [assessmentRecord, setAssessmentRecord] = useState(null);
     const [reportPreviewData, setReportPreviewData] = useState(null);
     const [saving, setSaving] = useState(false);
     const [isFrontCamera, setIsFrontCamera] = useState(true);
     const [multiViewIndex, setMultiViewIndex] = useState(0); // index into BPT1_VIEW_CONFIG for step 3 (starts at 1: posterior)
-    const [multiViewMetrics, setMultiViewMetrics] = useState(null); // live neck/shoulder/knee metrics for the active step-3 view
+    // Live Module 1 clinical rows for the active step-3 view (built by
+    // pose.js's evaluateModule1View, i.e. the same code the report uses).
+    const [multiViewRows, setMultiViewRows] = useState(null);
     const [capturedViews, setCapturedViews] = useState({}); // { anterior: base64, posterior: {image,analysis,label}, rightLateral: {...}, leftLateral: {...} }
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
@@ -891,7 +903,11 @@ function BPT1Module({
                         lastUIUpdateRef.current = now;
                         setTrackingConfidence(result.confidence || 0);
                         setOutOfFrame(!!result.outOfFrame);
-                        setMultiViewMetrics(result.outOfFrame ? null : result.metrics);
+                        // Clinical (converted) rows, so the live panel shows the
+                        // same angles the report will: interior camera angles are
+                        // converted to clinical ROM and scored against the same
+                        // depth-adjusted bands.
+                        setMultiViewRows(result.outOfFrame ? null : window.PF_Pose.evaluateModule1View(activeConfig.key, result));
                     }
                 } else {
                     multiViewAnalysisRef.current = null;
@@ -899,7 +915,7 @@ function BPT1Module({
                     if (now - lastUIUpdateRef.current >= UI_UPDATE_INTERVAL_MS) {
                         lastUIUpdateRef.current = now;
                         setOutOfFrame(true);
-                        setMultiViewMetrics(null);
+                        setMultiViewRows(null);
                     }
                 }
             });
@@ -996,6 +1012,8 @@ function BPT1Module({
                         if (!analysis.outOfFrame) {
                             setSquatState(analysis.squatState);
                             setLiveAngles(analysis.angles);
+                            setLiveDepthPct(analysis.depthPct);
+                            setLiveDepthRatio(analysis.depthRatio);
 
                             // Run active assessment
                             const assessmentData = window.PF_Pose.evaluatePosture(analysis);
@@ -1132,19 +1150,30 @@ function BPT1Module({
         const colorDev = "#ef4444"; // Red
         // Single source of truth for Module 1's clinical bounds (from pose.js,
         // sourced directly from the clinical squat chart) -- avoids duplicating
-        // magic numbers here that can silently drift out of sync.
+        // magic numbers here that can silently drift out of sync. Values are
+        // clinical angles (0deg = anatomical neutral), never raw interior
+        // segment angles, and the trunk/hip/ankle bands are depth-adjusted by
+        // pose.js exactly like the report rows are, so the live overlay colours
+        // always agree with the report.
         const STD = window.PF_Pose.standards;
+        const depthRatio = analysis.depthRatio === undefined ? 1 : analysis.depthRatio;
+        const trunkBand = window.PF_Pose.module1Band(STD.trunk, depthRatio);
+        const kneeBand = window.PF_Pose.module1Band(STD.knee, depthRatio);
+        const hipBand = window.PF_Pose.module1Band(STD.hip, depthRatio);
+        const ankleBand = window.PF_Pose.module1Band(STD.ankle, depthRatio);
+        const inBand = (val, band) => val >= band.minNormal && val <= band.maxNormal;
 
         // --- Trunk Lean "default reference guide line" ---------------------
-        // A fixed plumb-line + shaded wedge showing the chart's normal trunk
-        // lean corridor (30deg-45deg from vertical), anchored at the hip. The
-        // person's actual trunk line is compared against this default graph
-        // line in real time so any deviation is immediately visible, and the
-        // same avgTrunk value drives the PDF/report deviation numbers.
+        // A plumb-line + shaded wedge showing the normal trunk lean corridor
+        // (25deg-50deg at full squat depth, scaled down with the depth actually
+        // reached), anchored at the hip. The person's actual trunk line is
+        // compared against that corridor in real time so any deviation is
+        // immediately visible, and the same trunkLean value drives the
+        // report's deviation numbers.
         const hipMid = { x: (lHip.x + rHip.x) / 2, y: (lHip.y + rHip.y) / 2 };
         const shoulderMid = { x: (lShoulder.x + rShoulder.x) / 2, y: (lShoulder.y + rShoulder.y) / 2 };
         const trunkColor = analysis.depthPct > 40
-            ? (angles.avgTrunk >= STD.trunk.minNormal && angles.avgTrunk <= STD.trunk.maxNormal ? colorNormal : colorDev)
+            ? (inBand(angles.trunkLean, trunkBand) ? colorNormal : colorDev)
             : "white";
         const drawTrunkLeanGuide = (hip, shoulder) => {
             const p0x = 640 - hip.x * 640, p0y = hip.y * 480;
@@ -1155,10 +1184,11 @@ function BPT1Module({
                 const rad = angleDeg * Math.PI / 180;
                 return { x: p0x + leanDir * L * Math.sin(rad), y: p0y - L * Math.cos(rad) };
             };
-            const minB = boundaryPoint(STD.trunk.minNormal); // 30°
-            const maxB = boundaryPoint(STD.trunk.maxNormal); // 45°
+            const minB = boundaryPoint(trunkBand.minNormal);
+            const maxB = boundaryPoint(trunkBand.maxNormal);
 
-            // Shaded normal-zone wedge between the 30° and 45° boundary lines
+            // Shaded normal-zone wedge between the current (depth-adjusted)
+            // boundary lines
             ctx.beginPath();
             ctx.moveTo(p0x, p0y);
             ctx.lineTo(minB.x, minB.y);
@@ -1209,22 +1239,23 @@ function BPT1Module({
 
         // Actual trunk-alignment line (hip midpoint -> shoulder midpoint), drawn
         // thick and colored against the guide above so deviation from the
-        // default reference line reads instantly: green = within 30°-45°, red = deviated.
+        // reference corridor reads instantly: green = inside, red = outside.
         drawBoneLine(hipMid, shoulderMid, trunkColor, 4);
 
         // 2. Draw joint circle markers
         drawJointCircle(lShoulder, "white");
         drawJointCircle(rShoulder, "white");
 
-        // Dynamic color for knee based on the clinical chart's flexion target
-        const lKneeColor = angles.leftKnee >= STD.knee.minNormal && angles.leftKnee <= STD.knee.maxNormal ? colorNormal : analysis.depthPct > 40 ? colorDev : "#6366f1";
-        const rKneeColor = angles.rightKnee >= STD.knee.minNormal && angles.rightKnee <= STD.knee.maxNormal ? colorNormal : analysis.depthPct > 40 ? colorDev : "#6366f1";
+        // Dynamic color for knee based on the clinical knee-flexion / squat
+        // depth minimum (one-sided: only insufficient depth is a deviation)
+        const lKneeColor = inBand(angles.leftKneeFlexion, kneeBand) ? colorNormal : analysis.depthPct > 40 ? colorDev : "#6366f1";
+        const rKneeColor = inBand(angles.rightKneeFlexion, kneeBand) ? colorNormal : analysis.depthPct > 40 ? colorDev : "#6366f1";
         drawJointCircle(lKnee, lKneeColor);
         drawJointCircle(rKnee, rKneeColor);
 
-        // Dynamic color for hip based on the clinical chart's flexion target
-        const lHipColor = angles.leftHip >= STD.hip.minNormal && angles.leftHip <= STD.hip.maxNormal ? colorNormal : analysis.depthPct > 40 ? colorDev : "white";
-        const rHipColor = angles.rightHip >= STD.hip.minNormal && angles.rightHip <= STD.hip.maxNormal ? colorNormal : analysis.depthPct > 40 ? colorDev : "white";
+        // Dynamic color for hip based on the clinical hip-flexion target
+        const lHipColor = inBand(angles.leftHipFlexion, hipBand) ? colorNormal : analysis.depthPct > 40 ? colorDev : "white";
+        const rHipColor = inBand(angles.rightHipFlexion, hipBand) ? colorNormal : analysis.depthPct > 40 ? colorDev : "white";
         drawJointCircle(lHip, lHipColor);
         drawJointCircle(rHip, rHipColor);
 
@@ -1238,11 +1269,12 @@ function BPT1Module({
         drawMeasurementReticle(lAnkle, ANKLE_COLOR);
         drawMeasurementReticle(rAnkle, ANKLE_COLOR);
 
-        // 2b. Foot/toe alignment grid: ankle -> toe segment, color-coded against
-        // the clinical chart's Ankle Dorsiflexion range, with a
-        // measurement-reticle marker at each toe landmark.
-        const lAnkleColor = angles.leftAnkle >= STD.ankle.minNormal && angles.leftAnkle <= STD.ankle.maxNormal ? colorNormal : colorDev;
-        const rAnkleColor = angles.rightAnkle >= STD.ankle.minNormal && angles.rightAnkle <= STD.ankle.maxNormal ? colorNormal : colorDev;
+        // 2b. Ankle -> toe segment, color-coded against the shin-vs-vertical
+        // dorsiflexion target (the toe landmark only anchors the drawn segment;
+        // the reading itself comes from the shin angle, which is what the old
+        // knee-ankle-toe interior angle got wrong).
+        const lAnkleColor = inBand(angles.leftAnkleDorsiflexion, ankleBand) ? colorNormal : colorDev;
+        const rAnkleColor = inBand(angles.rightAnkleDorsiflexion, ankleBand) ? colorNormal : colorDev;
         if (lFoot) {
             drawBoneLine(lAnkle, lFoot, lAnkleColor, 2.5);
             drawMeasurementReticle(lFoot, lAnkleColor);
@@ -1264,17 +1296,19 @@ function BPT1Module({
             drawBoneLine(rShoulder, rWrist, HAND_COLOR, 2.5);
             drawMeasurementReticle(rWrist, HAND_COLOR);
         }
-        // 3. Draw text overlays
-        drawAngleLabel(lKnee, `${Math.round(angles.leftKnee)}°`, lKneeColor);
-        drawAngleLabel(rKnee, `${Math.round(angles.rightKnee)}°`, rKneeColor);
-        drawAngleLabel(lHip, `${Math.round(angles.leftHip)}°`, lHipColor);
-        drawAngleLabel(rHip, `${Math.round(angles.rightHip)}°`, rHipColor);
-        if (lFoot) drawAngleLabel(lFoot, `${Math.round(angles.leftAnkle)}°`, lAnkleColor);
-        if (rFoot) drawAngleLabel(rFoot, `${Math.round(angles.rightAnkle)}°`, rAnkleColor);
+        // 3. Draw text overlays. Labels show the clinical values (the same
+        // numbers the report and side panel use), each prefixed with the joint
+        // so it is obvious which angle system is on screen.
+        drawAngleLabel(lKnee, `Knee ${Math.round(angles.leftKneeFlexion)}°`, lKneeColor);
+        drawAngleLabel(rKnee, `Knee ${Math.round(angles.rightKneeFlexion)}°`, rKneeColor);
+        drawAngleLabel(lHip, `Hip ${Math.round(angles.leftHipFlexion)}°`, lHipColor);
+        drawAngleLabel(rHip, `Hip ${Math.round(angles.rightHipFlexion)}°`, rHipColor);
+        if (lFoot) drawAngleLabel(lFoot, `DF ${Math.round(angles.leftAnkleDorsiflexion)}°`, lAnkleColor);
+        if (rFoot) drawAngleLabel(rFoot, `DF ${Math.round(angles.rightAnkleDorsiflexion)}°`, rAnkleColor);
 
-        // Trunk Angle label next to shoulders, colored against the default
-        // reference guide line above (green = within the chart's 30°-45° zone)
-        drawAngleLabel(lShoulder, `Trunk: ${Math.round(angles.avgTrunk)}°`, trunkColor);
+        // Trunk label next to the shoulders, coloured against the same
+        // depth-adjusted corridor the guide above draws.
+        drawAngleLabel(lShoulder, `Trunk ${Math.round(angles.trunkLean)}°`, trunkColor);
     };
     const handleFreezeSnapshot = () => {
         const canvasElement = canvasRef.current;
@@ -1327,7 +1361,7 @@ function BPT1Module({
 
         if (multiViewIndex < BPT1_VIEW_CONFIG.length - 1) {
             multiViewAnalysisRef.current = null;
-            setMultiViewMetrics(null);
+            setMultiViewRows(null);
             setOutOfFrame(true);
             setMultiViewIndex(multiViewIndex + 1);
         } else {
@@ -1367,8 +1401,12 @@ function BPT1Module({
         // (Normal=0, Mild=1, Significant=2), not "any single Significant flag
         // wins" -- so a handful of significant deviations amid many normal/mild
         // ones no longer forces the whole report to read as Significant.
+        // "Not Assessable" rows are excluded (a lateral capture where the squat
+        // was too shallow to score) rather than counted as Normal.
         const PF_STATUS_SCORE = { "Normal": 0, "Mild Deviation": 1, "Significant Deviation": 2 };
-        const combinedStatusScores = combinedMeasurements.map(m => PF_STATUS_SCORE[m.status] ?? 0);
+        const combinedStatusScores = combinedMeasurements
+            .filter(m => m.status !== "Not Assessable")
+            .map(m => PF_STATUS_SCORE[m.status] ?? 0);
         const combinedAvgScore = combinedStatusScores.length > 0
             ? combinedStatusScores.reduce((sum, s) => sum + s, 0) / combinedStatusScores.length
             : 0;
@@ -1385,12 +1423,16 @@ function BPT1Module({
             { label: "Right Lateral", rows: staticEval.viewSections?.rightLateral || [] }
         ];
 
+        // Module 1-specific report text. generatePostureInterpretation /
+        // generatePostureRecommendations are NOT used here any more: they are
+        // shared with Module 2 (BPT2) and describe standing plumb-line
+        // deviations, not squat angles.
         const combinedInterpretation = staticEval.measurements.length > 0
-            ? `${interpretationText} ${window.PF_Pose.generatePostureInterpretation(staticEval)}`
+            ? `${interpretationText} ${window.PF_Pose.generateModule1StaticInterpretation(staticEval)}`
             : interpretationText;
 
         // Merge recommendation lists, de-duplicated, capped to a reasonable length
-        const mergedRecs = [...recommendationsText, ...(staticEval.measurements.length > 0 ? window.PF_Pose.generatePostureRecommendations(staticEval) : [])];
+        const mergedRecs = [...recommendationsText, ...(staticEval.measurements.length > 0 ? window.PF_Pose.generateModule1StaticRecommendations(staticEval) : [])];
         const combinedRecommendations = [...new Set(mergedRecs)].slice(0, 6);
 
         const imageOf = v => (typeof v === "string" ? v : v?.image) || null;
@@ -1412,6 +1454,9 @@ function BPT1Module({
             },
             measurements: combinedMeasurements,
             viewSections: viewSections,
+            // Method / angle-convention note. Rendered by the report preview and
+            // the PDF only when present, so Module 2 output is unaffected.
+            note: window.PF_Pose.module1ReportNote,
             image_base64: imageOf(allViews.anterior) || frozenFrameRef.current,
             images: BPT1_VIEW_CONFIG.map(v => ({
                 label: v.label,
@@ -1434,7 +1479,10 @@ function BPT1Module({
             measurements: reportPreviewData.measurements,
             viewSections: reportPreviewData.viewSections,
             interpretation: reportPreviewData.interpretation,
-            recommendations: reportPreviewData.recommendations
+            recommendations: reportPreviewData.recommendations,
+            // Persisted so a report re-opened from the archive still carries the
+            // Module 1 angle-convention/method note.
+            note: reportPreviewData.note || ""
         };
         await onSaveAssessment(payload);
         // Automatically download the PDF report once the assessment is saved
@@ -1445,6 +1493,17 @@ function BPT1Module({
         // Trigger Client PDF download
         window.PF_Reports.downloadClientPDF(reportPreviewData);
     };
+    // Depth-adjusted clinical bands for the live side panel -- straight from
+    // pose.js, so the on-screen ranges are the exact ones the report rows are
+    // scored against (trunk/hip/ankle scale down with the squat depth reached).
+    const liveBand = key => window.PF_Pose.module1Band(window.PF_Pose.standards[key], liveDepthRatio);
+    const liveStatusOf = (joint, side) => {
+        const rows = assessmentRecord && assessmentRecord.measurements;
+        if (!rows) return "Normal";
+        const row = rows.find(m => m.joint === joint && (!side || m.side === side));
+        return row ? row.status : "Normal";
+    };
+    const depthTargetStatus = liveDepthPct >= 80 ? "Normal" : liveDepthPct >= 60 ? "Mild Deviation" : "Significant Deviation";
     return /*#__PURE__*/React.createElement("div", {
         className: "animate-fade-in"
     }, /*#__PURE__*/React.createElement("div", {
@@ -1562,13 +1621,13 @@ function BPT1Module({
         className: "score-display"
     }, /*#__PURE__*/React.createElement("div", {
         className: "score-num"
-    }, Math.round(liveAngles.leftKnee), "°"), /*#__PURE__*/React.createElement("div", {
+    }, Math.round(liveAngles.leftKneeFlexion), "°"), /*#__PURE__*/React.createElement("div", {
         style: {
             color: "var(--text-muted)",
             fontSize: 12,
             marginTop: 4
         }
-    }, "Left Knee Flexion (Ref: 30° - 50°)")), /*#__PURE__*/React.createElement("div", {
+    }, "Left Knee Flexion (Ref: ", liveBand("knee").refRange, ")")), /*#__PURE__*/React.createElement("div", {
         className: "risk-level-banner",
         style: {
             background: assessmentRecord?.overallStatus === "Significant Deviation" ? "var(--danger-bg)" : assessmentRecord?.overallStatus === "Mild Deviation" ? "var(--warning-bg)" : "var(--success-bg)",
@@ -1591,40 +1650,46 @@ function BPT1Module({
             gap: 10
         }
     }, /*#__PURE__*/React.createElement(AngleRow, {
+        label: "Squat Depth",
+        val: liveDepthPct,
+        unit: "%",
+        refRange: "≥ 80%",
+        status: depthTargetStatus
+    }), /*#__PURE__*/React.createElement(AngleRow, {
         label: "Left Knee Flexion",
-        val: liveAngles.leftKnee,
-        refRange: "30° - 50°",
-        status: assessmentRecord?.measurements?.find(m => m.joint === "Knee Flexion" && m.side === "Left")?.status || "Normal"
+        val: liveAngles.leftKneeFlexion,
+        refRange: liveBand("knee").refRange,
+        status: liveStatusOf("Knee Flexion", "Left")
     }), /*#__PURE__*/React.createElement(AngleRow, {
         label: "Right Knee Flexion",
-        val: liveAngles.rightKnee,
-        refRange: "30° - 50°",
-        status: assessmentRecord?.measurements?.find(m => m.joint === "Knee Flexion" && m.side === "Right")?.status || "Normal"
+        val: liveAngles.rightKneeFlexion,
+        refRange: liveBand("knee").refRange,
+        status: liveStatusOf("Knee Flexion", "Right")
     }), /*#__PURE__*/React.createElement(AngleRow, {
         label: "Left Hip Flexion",
-        val: liveAngles.leftHip,
-        refRange: "55° - 70°",
-        status: assessmentRecord?.measurements?.find(m => m.joint === "Hip Flexion" && m.side === "Left")?.status || "Normal"
+        val: liveAngles.leftHipFlexion,
+        refRange: liveBand("hip").refRange,
+        status: liveStatusOf("Hip Flexion", "Left")
     }), /*#__PURE__*/React.createElement(AngleRow, {
         label: "Right Hip Flexion",
-        val: liveAngles.rightHip,
-        refRange: "55° - 70°",
-        status: assessmentRecord?.measurements?.find(m => m.joint === "Hip Flexion" && m.side === "Right")?.status || "Normal"
+        val: liveAngles.rightHipFlexion,
+        refRange: liveBand("hip").refRange,
+        status: liveStatusOf("Hip Flexion", "Right")
     }), /*#__PURE__*/React.createElement(AngleRow, {
-        label: "Trunk Alignment",
-        val: liveAngles.avgTrunk,
-        refRange: "30° - 45°",
-        status: assessmentRecord?.measurements?.find(m => m.joint === "Trunk Lean")?.status || "Normal"
+        label: "Trunk Lean",
+        val: liveAngles.trunkLean,
+        refRange: liveBand("trunk").refRange,
+        status: liveStatusOf("Trunk Lean")
     }), /*#__PURE__*/React.createElement(AngleRow, {
-        label: "Left Ankle",
-        val: liveAngles.leftAnkle,
-        refRange: "50° - 55°",
-        status: assessmentRecord?.measurements?.find(m => m.joint === "Ankle Alignment" && m.side === "Left")?.status || "Normal"
+        label: "Left Ankle Dorsiflexion",
+        val: liveAngles.leftAnkleDorsiflexion,
+        refRange: liveBand("ankle").refRange,
+        status: liveStatusOf("Ankle Dorsiflexion", "Left")
     }), /*#__PURE__*/React.createElement(AngleRow, {
-        label: "Right Ankle",
-        val: liveAngles.rightAnkle,
-        refRange: "50° - 55°",
-        status: assessmentRecord?.measurements?.find(m => m.joint === "Ankle Alignment" && m.side === "Right")?.status || "Normal"
+        label: "Right Ankle Dorsiflexion",
+        val: liveAngles.rightAnkleDorsiflexion,
+        refRange: liveBand("ankle").refRange,
+        status: liveStatusOf("Ankle Dorsiflexion", "Right")
     }))))), step === 3 && /*#__PURE__*/React.createElement("div", {
         className: "analysis-layout"
     }, /*#__PURE__*/React.createElement("div", {
@@ -1689,15 +1754,18 @@ function BPT1Module({
         style: { background: "rgba(139, 92, 246, 0.15)", color: "var(--text-purple)" }
     }, "Module Used : Squat Analysis")), /*#__PURE__*/React.createElement("p", {
         style: { color: "var(--text-muted)", fontSize: 13, marginBottom: 12 }
-    }, "Tracking Confidence: ", Math.round(trackingConfidence * 100), "%"), (multiViewMetrics ? Object.entries(multiViewMetrics) : []).length > 0 ? /*#__PURE__*/React.createElement("div", {
+    }, "Tracking Confidence: ", Math.round(trackingConfidence * 100), "%"), (multiViewRows || []).length > 0 ? /*#__PURE__*/React.createElement("div", {
         style: { display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }
-    }, Object.entries(multiViewMetrics).map(([key, val]) => /*#__PURE__*/React.createElement(AngleRow, {
-        key: key,
-        label: key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase()),
-        val: val,
-        refRange: "≤ 2°-8°",
-        status: val > 8 ? "Significant Deviation" : val > 2 ? "Mild Deviation" : "Normal"
-    }))) : /*#__PURE__*/React.createElement("p", {
+    }, multiViewRows.map((row, idx) => /*#__PURE__*/React.createElement(AngleRow, {
+        key: `${row.joint}-${row.side}-${idx}`,
+        label: row.shortLabel || row.joint,
+        val: row.angle,
+        unit: row.unit || "°",
+        refRange: row.fixed,
+        status: row.status
+    })), /*#__PURE__*/React.createElement("p", {
+        style: { color: "var(--text-muted)", fontSize: 12, marginTop: 4 }
+    }, "Measured values are clinical angles (0° = neutral); bracketed figures on the report are the raw interior camera angles.")) : /*#__PURE__*/React.createElement("p", {
         style: { color: "var(--text-muted)", fontSize: 13, marginBottom: 12 }
     }, "Align the patient in frame to begin live neck, shoulder, and knee tracking for this view."), /*#__PURE__*/React.createElement("p", {
         style: { color: "var(--text-muted)", fontSize: 13 }
@@ -2561,7 +2629,10 @@ function buildReportDataFromLog(log) {
         measurements: log.measurements,
         viewSections: log.viewSections || [],
         interpretation: log.interpretation,
-        recommendations: log.recommendations
+        recommendations: log.recommendations,
+        // Method/angle-convention note (Module 1 squat reports only; empty for
+        // Module 2 sessions, in which case the report simply omits the block).
+        note: log.note || ""
     };
 }
 function ReportsView({
@@ -2722,6 +2793,11 @@ function SettingsView({
     }, "Clear All Local Data"), /*#__PURE__*/React.createElement("button", {
         type: "button",
         className: "btn btn-secondary",
+        style: {
+            background: "rgba(255, 255, 255, 0.12)",
+            borderColor: "rgba(255, 255, 255, 0.25)",
+            color: "#f6e9ec"
+        },
         onClick: onBack
     }, "Back to Station")), /*#__PURE__*/React.createElement("div", {
         style: {
@@ -2743,10 +2819,11 @@ function AngleRow({
     label,
     val,
     refRange,
-    status
+    status,
+    unit = "°"
 }) {
     let statusClass = "text-success";
-    if (status.includes("Significant")) statusClass = "text-danger"; else if (status.includes("Mild")) statusClass = "text-warning";
+    if (status.includes("Significant")) statusClass = "text-danger"; else if (status.includes("Mild")) statusClass = "text-warning"; else if (status.includes("Not Assessable")) statusClass = "text-muted";
     return /*#__PURE__*/React.createElement("div", {
         className: "angle-row"
     }, /*#__PURE__*/React.createElement("div", {
@@ -2759,7 +2836,7 @@ function AngleRow({
         className: "angle-value-box"
     }, /*#__PURE__*/React.createElement("span", {
         className: "angle-val"
-    }, Math.round(val), "°"), /*#__PURE__*/React.createElement("span", {
+    }, Math.round(val), unit), /*#__PURE__*/React.createElement("span", {
         className: `angle-name ${statusClass}`,
         style: {
             fontSize: 12
@@ -2779,15 +2856,24 @@ function ReportCanvasPreview({
     // "Deviated Side" only makes clinical sense once a row is actually
     // flagged as a deviation; Normal rows show "-" regardless of what was
     // computed under the hood.
-    const deviatedSideDisplay = m => (m.status !== "Normal" && m.deviatedSide) ? m.deviatedSide : "-";
+    const deviatedSideDisplay = m => (m.status !== "Normal" && m.status !== "Not Assessable" && m.deviatedSide) ? m.deviatedSide : "-";
+    // "Measured Angle" shows the clinical value; when a raw interior camera
+    // angle was converted to produce it (knee/hip), both are shown so no number
+    // is ambiguous about which angle system it belongs to.
+    const measuredDisplay = m => {
+        const unit = m.unit || "°";
+        const base = `${Math.round(m.angle)}${unit}`;
+        return (m.rawAngle === null || m.rawAngle === undefined) ? base : `${base} (raw ${Math.round(m.rawAngle)}°)`;
+    };
+    const statusClassOf = m => m.status.includes("Significant") ? "text-danger" : m.status.includes("Mild") ? "text-warning" : m.status.includes("Not Assessable") ? "text-muted" : "text-success";
     const renderMeasurementTable = rows => /*#__PURE__*/React.createElement("table", {
         className: "report-table"
     }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Parameter"), /*#__PURE__*/React.createElement("th", null, "Side"), /*#__PURE__*/React.createElement("th", null, "Fixed / Normal Angle"), /*#__PURE__*/React.createElement("th", null, "Measured Angle"), /*#__PURE__*/React.createElement("th", null, "Deviation"), /*#__PURE__*/React.createElement("th", null, "Deviated Side"), /*#__PURE__*/React.createElement("th", null, "Status"))), /*#__PURE__*/React.createElement("tbody", null, rows.map((m, idx) => /*#__PURE__*/React.createElement("tr", {
         key: idx
     }, /*#__PURE__*/React.createElement("td", null, m.joint), /*#__PURE__*/React.createElement("td", null, m.side), /*#__PURE__*/React.createElement("td", null, m.fixed || m.reference), /*#__PURE__*/React.createElement("td", {
         style: { fontWeight: 600 }
-    }, Math.round(m.angle), "°"), /*#__PURE__*/React.createElement("td", null, m.deviation, "°"), /*#__PURE__*/React.createElement("td", null, deviatedSideDisplay(m)), /*#__PURE__*/React.createElement("td", {
-        className: m.status.includes("Significant") ? "text-danger" : m.status.includes("Mild") ? "text-warning" : "text-success"
+    }, measuredDisplay(m)), /*#__PURE__*/React.createElement("td", null, m.deviation, m.unit || "°"), /*#__PURE__*/React.createElement("td", null, deviatedSideDisplay(m)), /*#__PURE__*/React.createElement("td", {
+        className: statusClassOf(m)
     }, m.status)))));
     return /*#__PURE__*/React.createElement("div", {
         className: "report-scroll-container"
@@ -2879,7 +2965,12 @@ function ReportCanvasPreview({
         className: "report-section-title"
     }, section.label), renderMeasurementTable(section.rows))) : /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
         className: "report-section-title"
-    }, "Biomechanical Joints Summary"), renderMeasurementTable(measurements)), /*#__PURE__*/React.createElement("div", {
+    }, "Biomechanical Joints Summary"), renderMeasurementTable(measurements)), reportData.note && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+        className: "report-section-title"
+    }, "Method & Angle Convention"), /*#__PURE__*/React.createElement("div", {
+        className: "report-remarks",
+        style: { fontSize: 11 }
+    }, reportData.note)), /*#__PURE__*/React.createElement("div", {
         className: "report-section-title"
     }, "Clinical Interpretation"), /*#__PURE__*/React.createElement("div", {
         className: "report-remarks"
