@@ -77,7 +77,10 @@
                     interpretation: s.interpretation || "",
                     recommendations: s.recommendations || [],
                     measurements: s.measurements || [],
-                    viewSections: s.viewSections || []
+                    viewSections: s.viewSections || [],
+                    // Module 1 squat reports carry a method/angle-convention note;
+                    // Module 2 sessions simply store an empty string.
+                    note: s.note || ""
                 };
             }).reverse();
         }
