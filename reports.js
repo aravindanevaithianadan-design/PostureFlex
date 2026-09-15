@@ -306,16 +306,26 @@
             doc.text(heading, MARGIN, currentY);
 
             // "Deviated Side" only makes clinical sense once a row is actually
-            // flagged as a deviation; Normal rows show "-" regardless of what
-            // was computed under the hood.
-            const deviatedSideDisplay = (m) => (m.status !== "Normal" && m.deviatedSide) ? m.deviatedSide : "-";
+            // flagged as a deviation; Normal and Not Assessable rows show "-"
+            // regardless of what was computed under the hood.
+            const deviatedSideDisplay = (m) => (m.status !== "Normal" && m.status !== "Not Assessable" && m.deviatedSide) ? m.deviatedSide : "-";
+            // "Measured" shows the clinical value; where a raw interior camera
+            // angle had to be converted to get it (knee/hip flexion), both
+            // figures are printed so there is no ambiguity about the angle
+            // system a number belongs to. `unit` defaults to degrees, so
+            // Module 2 output is byte-for-byte unchanged.
+            const measuredDisplay = (m) => {
+                const unit = m.unit || "°";
+                const base = `${m.angle}${unit}`;
+                return (m.rawAngle === null || m.rawAngle === undefined) ? base : `${base} (raw ${m.rawAngle}°)`;
+            };
 
             const tableBody = rows.map(m => [
                 m.joint,
                 m.side,
                 `${m.fixed || m.reference}`,
-                `${m.angle}°`,
-                `${m.deviation}°`,
+                measuredDisplay(m),
+                `${m.deviation}${m.unit || "°"}`,
                 deviatedSideDisplay(m),
                 m.status
             ]);
@@ -339,6 +349,12 @@
                         } else if (status.includes('Mild')) {
                             cellData.cell.styles.textColor = [217, 119, 6];
                             cellData.cell.styles.fontStyle = 'bold';
+                        } else if (status.includes('Not Assessable')) {
+                            // Measured but deliberately unscored (e.g. the squat
+                            // was too shallow for a depth-scaled range) -- gray,
+                            // so it can never read as a pass or a failure.
+                            cellData.cell.styles.textColor = [107, 114, 128];
+                            cellData.cell.styles.fontStyle = 'normal';
                         } else {
                             cellData.cell.styles.textColor = [5, 150, 105];
                             cellData.cell.styles.fontStyle = 'bold';
@@ -354,6 +370,27 @@
             viewSections.forEach(section => drawMeasurementsTable(section.rows, section.label));
         } else {
             drawMeasurementsTable(measurements, "Biomechanical Measurements");
+        }
+
+        // Method / angle-convention note. Only rendered when the session
+        // supplies one (Module 1 squat reports), so Module 2 PDFs are unchanged.
+        if (data.note) {
+            if (currentY > BOTTOM_LIMIT) {
+                doc.addPage();
+                currentY = 40;
+            }
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9.5);
+            doc.setTextColor(79, 70, 229);
+            doc.text("Method & Angle Convention", MARGIN, currentY);
+            currentY += 12;
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8);
+            doc.setTextColor(107, 114, 128);
+            const splitNote = doc.splitTextToSize(data.note, CONTENT_W);
+            doc.text(splitNote, MARGIN, currentY);
+            currentY += (splitNote.length * 11) + 15;
         }
 
         // If Y is too close to bottom, add a new page
