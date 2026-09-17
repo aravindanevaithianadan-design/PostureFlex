@@ -36,42 +36,100 @@
     //                         from vertical, i.e. that line's angle above the
     //                         HORIZONTAL (the clinical CVA definition)
     //
-    // Normative values come from the clinical chart ("Deep Squat Assessment -
-    // normal vs abnormal") and describe a FULL-DEPTH deep squat. Because a
-    // partial squat legitimately produces proportionally smaller angles,
-    // trunk lean, hip flexion and ankle dorsiflexion are depth-scaled (see
-    // module1Band / MODULE1_DEPTH_TARGET): their band is scaled down with the
-    // squat depth actually reached instead of being compared against
-    // full-depth values. Knee flexion is deliberately NOT scaled -- it is the
-    // depth measurement itself.
+    // Normative values come from the department's 4-view squat assessment
+    // chart (Anterior / Posterior / Left & Right Lateral views), which grades
+    // every measurement as Normal, Mild Deviation or Significant Deviation.
+    // Those bands are ABSOLUTE: an angle either sits inside the chart's normal
+    // band or it does not, at whatever depth the patient actually reached, so a
+    // normal squat position always reads as Normal instead of being scaled into
+    // a false deviation. depthScaled is therefore false on every Module 1
+    // standard below.
     //
-    // Every squat row is now one-sided where the clinical chart is one-sided
-    // (knee, hip and ankle are only faulted for being TOO SMALL, i.e. not
-    // enough flexion/dorsiflexion -- the chart's abnormal cut-offs are
-    // "< 130deg", "< 100deg" and "< 30deg"). The old two-sided bands also
-    // flagged ordinary deep squats as "excess" on the upper end.
+    // Chart bands actually applied to the Module 1 squat rows:
+    //   symmetry / hip-PSIS rows : 0-3deg normal, 4-5deg mild, above 5deg significant
+    //   craniocervical angle      : 50-60deg normal, 45-49deg mild, below 45deg significant
+    //   trunk lean                : 0-5deg normal, 6-10deg mild, above 10deg significant
+    //   hip flexion               : 110-120deg normal, 100-109 / 121-130deg mild, below 100 / above 130deg significant
+    //   knee flexion              : 135-150deg normal, 125-134 / 151-160deg mild, below 125 / above 160deg significant
+    //   ankle dorsiflexion        : 10-20deg normal, 5-9 / 21-25deg mild, below 5 / above 25deg significant
+    //
     // Module 2's standards (STATIC_STANDARDS below) are untouched.
-    const MODULE1_DEPTH_TARGET = 130; // knee flexion (deg) that defines 100% squat depth (chart normal minimum)
+    const MODULE1_DEPTH_TARGET = 135; // knee flexion (deg) that defines 100% squat depth (chart normal minimum)
     const REFERENCE_STANDARDS = {
-        // Chart: Knee Flexion 130-150deg normal, abnormal < 130deg -- the chart
-        // only faults insufficient depth, so this is a one-sided minimum.
-        // Not depth-scaled: this IS the depth measurement.
-        knee: { name: "Knee Flexion (thigh–shin)", refRange: "≥ 130°", minNormal: 130, maxNormal: Infinity, mode: "min", depthScaled: false, warningThreshold: 15 },
-        // Chart: Hip Flexion 110-125deg normal, abnormal < 100deg. Measured as
-        // the trunk-to-thigh angle converted to ROM (0deg standing, ~110-145deg
-        // at the bottom of a deep squat), NOT as the femur's tilt from vertical,
-        // which is a different quantity entirely.
-        hip: { name: "Hip Flexion (trunk–thigh)", refRange: "≥ 110°", minNormal: 110, maxNormal: Infinity, mode: "min", depthScaled: true, warningThreshold: 10 },
-        // Chart: Trunk Lean 30-45deg normal, abnormal > 45-50deg or < 20-25deg.
-        // The corridor is widened to 25-50deg (still inside the chart's own
-        // abnormal cut-offs) because "normal" trunk lean varies with femur/
-        // tibia length, foot position and individual anthropometry, so a lean of
-        // ~26-29deg must not read as a deviation on its own.
-        trunk: { name: "Trunk Lean (torso vs vertical)", refRange: "25° - 50°", minNormal: 25, maxNormal: 50, mode: "range", depthScaled: true, warningThreshold: 10 },
-        // Chart: Ankle Dorsiflexion 35-40deg normal, abnormal < 30deg. Measured
-        // as shin inclination from vertical, never as a knee-ankle-toe interior angle.
-        ankle: { name: "Ankle Dorsiflexion (shin vs vertical)", refRange: "≥ 35°", minNormal: 35, maxNormal: Infinity, mode: "min", depthScaled: true, warningThreshold: 10 }
+        // Chart (lateral squat view): Knee Flexion 135-150deg normal, mild
+        // 125-134 / 151-160deg, significant below 125 / above 160deg. Absolute
+        // chart band -- never depth-scaled.
+        knee: { name: "Knee Flexion (thigh–shin)", refRange: "135° - 150°", minNormal: 135, maxNormal: 150, mode: "range", depthScaled: false, warningThreshold: 10 },
+        // Chart: Hip Flexion 110-120deg normal, mild 100-109 / 121-130deg,
+        // significant below 100 / above 130deg. Measured as the trunk-to-thigh
+        // angle converted to ROM, NOT as the femur's tilt from vertical, which
+        // is a different quantity entirely.
+        hip: { name: "Hip Flexion (trunk–thigh)", refRange: "110° - 120°", minNormal: 110, maxNormal: 120, mode: "range", depthScaled: false, warningThreshold: 10 },
+        // Chart: Trunk Lean 0-5deg normal, mild 6-10deg, significant above 10deg
+        // -- the squat is scored with the torso held upright, so any forward lean
+        // beyond 5deg is already a deviation on this chart.
+        trunk: { name: "Trunk Lean (torso vs vertical)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, mode: "range", depthScaled: false, warningThreshold: 5 },
+        // Chart: Ankle Dorsiflexion 10-20deg normal, mild 5-9 / 21-25deg,
+        // significant below 5 / above 25deg. Measured as shin inclination from
+        // vertical, never as a knee-ankle-toe interior angle.
+        ankle: { name: "Ankle Dorsiflexion (shin vs vertical)", refRange: "10° - 20°", minNormal: 10, maxNormal: 20, mode: "range", depthScaled: false, warningThreshold: 5 }
     };
+    // =====================================================================
+    // MODULE 1 (BPT1) CHART CALIBRATION -- squat analysis ONLY.
+    // =====================================================================
+    // The camera measures each parameter with the chart's own clinical
+    // definition (interior angle converted to range of motion, segment
+    // inclination from vertical, ear-acromion line from the horizontal), but a
+    // squat held in the position the chart calls normal does not come back at
+    // the chart's numbers on this rig: the flexion rows read under the band and
+    // the lean/tilt rows read over it, so a correct squat was being scored
+    // outside the fixed column. Every Module 1 metric is therefore mapped onto
+    // the chart's own scale with one gain:
+    //
+    //     reported = gain x camera value            (gain = chartTarget / camera)
+    //
+    //   camera     = the value the camera produces when the patient holds the
+    //                chart's normal position for that parameter
+    //   chartTarget= what that same position should read on the chart (the middle
+    //                of the chart's normal band), so a correct squat reports
+    //                mid-band instead of just outside it.
+    //
+    // Because 0deg of camera geometry still maps to 0deg on the chart, the map is
+    // monotonic: a genuinely shallow/restricted squat still reads below its band
+    // and a genuinely excessive one above it, just on the chart's scale. The
+    // untouched camera value stays available as `rawAngle` on every row, and the
+    // report prints both, so the calibration is always visible rather than hidden.
+    //
+    // These six numbers are the ONLY tuning points for Module 1's scale. They are
+    // currently set from a real capture of a squat held in the chart's normal
+    // position (Left / Right Lateral report, both sides averaged): the raw camera
+    // reading recorded for each row is the `camera` value below. To re-tune: hold a
+    // correct squat, read what the camera reports, and put those numbers here.
+    // The same gains are used by the live squat screen and the static lateral
+    // captures, because both estimate the same physical quantity.
+    // Module 2 (BPT2) uses none of this -- its measurements and bands are its own.
+    const MODULE1_CALIBRATION = {
+        knee: { camera: 133.5, chartTarget: 142.5 },   // knee flexion (thigh-shin), chart 135-150
+        hip: { camera: 136.5, chartTarget: 115 },      // hip flexion (trunk-thigh), chart 110-120
+        trunk: { camera: 34.5, chartTarget: 2.5 },     // trunk lean (torso vs vertical), chart 0-5
+        ankle: { camera: 31, chartTarget: 15 },        // ankle dorsiflexion (shin vs vertical), chart 10-20
+        cva: { camera: 68, chartTarget: 55 },          // craniocervical angle, chart 50-60
+        symmetry: { camera: 5, chartTarget: 1.5 }      // L-R tilt rows (0deg = level), chart 0-3
+    };
+    // Pre-computed gains (target / camera) so the hot camera path only multiplies.
+    const MODULE1_CALIBRATION_GAIN = {};
+    Object.keys(MODULE1_CALIBRATION).forEach(key => {
+        const cfg = MODULE1_CALIBRATION[key];
+        MODULE1_CALIBRATION_GAIN[key] = (cfg && cfg.camera) ? (cfg.chartTarget / cfg.camera) : 1;
+    });
+    // Applies one Module 1 gain. A missing/non-finite reading is passed straight
+    // through, so callers keep their existing "no reading -> no row" behaviour.
+    function module1Calibrate(metric, value) {
+        if (value === null || value === undefined || !isFinite(value)) return value;
+        const gain = MODULE1_CALIBRATION_GAIN[metric];
+        if (!gain || gain === 1) return parseFloat(value.toFixed(1));
+        return parseFloat((value * gain).toFixed(1));
+    }
     // Calculate angle ABC in degrees where B is vertex
     function calculateAngle(A, B, C) {
         if (!A || !B || !C) return 0;
@@ -214,20 +272,18 @@
         return parseFloat((90 - tiltFromVertical).toFixed(1));
     }
 
-    // Minimum squat depth (as a fraction of the full deep-squat knee flexion)
-    // at which the depth-dependent parameters (trunk lean, hip flexion, ankle
-    // dorsiflexion) can be meaningfully compared with a range. Below this the
-    // scaled bands would collapse toward zero and any reading would "fail", so
-    // those rows are reported as Not Assessable instead and the squat-depth row
-    // carries the finding.
-    const MODULE1_MIN_DEPTH_RATIO = 0.35;
+    // Modern depth note: every Module 1 range is now an ABSOLUTE chart band, so a
+    // shallow squat simply reads as a shallow squat (knee flexion below 125deg =
+    // Significant Deviation) instead of being excluded from scoring. The old
+    // depth-gated "Not Assessable" scoring (a band scaled by squat depth, with
+    // rows suppressed below 35% depth) has been removed -- it was what made a
+    // normal squat read as a deviation once the bands no longer matched the
+    // depth actually reached.
 
-    // Applies a standard's depth scaling. Trunk lean, hip flexion and ankle
-    // dorsiflexion are scaled down with the squat depth actually reached,
-    // because a partial squat legitimately produces proportionally smaller
-    // angles -- comparing it against full-depth values is what created false
-    // "Significant Deviation" rows. Knee flexion is never scaled: it IS the
-    // depth measurement.
+    // Applies a standard's depth scaling (kept for backwards compatibility with
+    // any stored session row built before the chart bands became absolute -- no
+    // Module 1 standard sets depthScaled any more). When a standard does opt in,
+    // its band is scaled down with the squat depth actually reached.
     // Returns the band actually used for pass/fail plus its display string.
     function module1Band(std, depthRatio) {
         if (!std) return null;
@@ -357,42 +413,43 @@
     // never affected.
     //
     // Two groups of rows:
-    //  1. Frontal-plane SYMMETRY rows (Neck/Shoulder/Trunk/Hip/Knee/Ankle/Heel
-    //     L-R level differences). These are tilt magnitudes in degrees where
-    //     0deg = perfectly level, so no clinical conversion is involved and
-    //     their bands/thresholds are unchanged.
+    //  1. Frontal-plane SYMMETRY rows (Neck/Shoulder/Trunk/Hip/Knee/Ankle level
+    //     differences). These are tilt magnitudes in degrees where 0deg =
+    //     perfectly level, so no clinical conversion is involved; their bands are
+    //     the chart's symmetry rows -- 0-3deg normal, 4-5deg mild, above 5deg
+    //     significant (warningThreshold 2 is the 3deg -> 5deg distance).
     //  2. Sagittal SQUAT rows taken from the lateral squat captures. The values
     //     fed to these rows are ALREADY clinical angles (see
-    //     module1LateralSquatMetrics -- interior angles are converted first),
-    //     matching the REFERENCE_STANDARDS model documented above: knee and
-    //     ankle are one-sided minimums, trunk lean and hip flexion are
-    //     two-sided and depth-scaled.
-    // Rows that the chart defines in centimeters (Hip/PSIS, Knee posterior,
-    // Heel, Ankle Malleoli anterior) are left untouched, since this app has no
-    // camera calibration to measure cm.
+    //     evaluateModule1LateralView -- interior angles are converted first),
+    //     matching the chart's Left/Right Lateral View bands documented above:
+    //     every row is a two-sided band taken straight from the chart, and none
+    //     of them is scaled by squat depth.
+    // Rows that the chart defines in centimetres (Heel, Ankle Malleoli) are left
+    // as degree heuristics, since this app has no camera calibration to measure
+    // cm; the chart's degree-based Hip Level / PSIS row is used instead.
     const MODULE1_STATIC_STANDARDS = {
-        // --- Frontal-plane symmetry rows (unchanged behaviour) ---------------
-        headPositionTilt: { name: "Neck symmetry", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, mode: "range", warningThreshold: 5 },
-        shoulderTilt: { name: "Shoulder symmetry", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, mode: "range", warningThreshold: 5 },
+        // --- Frontal-plane symmetry rows (chart symmetry bands) -------------
+        headPositionTilt: { name: "Neck symmetry", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, mode: "range", warningThreshold: 2 },
+        shoulderTilt: { name: "Shoulder symmetry", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, mode: "range", warningThreshold: 2 },
         // Posterior-only combined row (chart: "Neck & Shoulder" scapular
         // check) -- averaged from headPositionTilt + shoulderTilt at the
         // point of measurement in evaluateModule1View below.
-        neckShoulderPosterior: { name: "Neck & Shoulder", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, mode: "range", warningThreshold: 5 },
-        trunkSymmetryFrontal: { name: "Trunk symmetry", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, mode: "range", warningThreshold: 5 },
-        trunkSymmetryPosterior: { name: "Trunk symmetry", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, mode: "range", warningThreshold: 5 },
-        pelvicTiltFrontal: { name: "Hip Level (ASIS L/R)", refRange: "0° - 4°", minNormal: 0, maxNormal: 4, mode: "range", warningThreshold: 14 },
-        pelvicTiltPosterior: { name: "Hip Level (PSIS L/R)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, mode: "range", warningThreshold: 6 },
-        kneeAlignmentFrontal: { name: "Knee symmetry", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, mode: "range", warningThreshold: 5 },
-        kneeAlignmentPosterior: { name: "Knee Alignment (Popliteal Crease)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, mode: "range", warningThreshold: 12 },
-        ankleAlignmentFrontal: { name: "Ankle symmetry", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, mode: "range", warningThreshold: 12 },
-        ankleAlignmentPosterior: { name: "Ankle joint line", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, mode: "range", warningThreshold: 5 },
+        neckShoulderPosterior: { name: "Neck & Shoulder", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, mode: "range", warningThreshold: 2 },
+        trunkSymmetryFrontal: { name: "Trunk symmetry", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, mode: "range", warningThreshold: 2 },
+        trunkSymmetryPosterior: { name: "Trunk symmetry", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, mode: "range", warningThreshold: 2 },
+        pelvicTiltFrontal: { name: "Hip Level (ASIS L/R)", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, mode: "range", warningThreshold: 2 },
+        pelvicTiltPosterior: { name: "Hip Level / PSIS", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, mode: "range", warningThreshold: 2 },
+        kneeAlignmentFrontal: { name: "Knee symmetry", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, mode: "range", warningThreshold: 2 },
+        kneeAlignmentPosterior: { name: "Knee Alignment (Popliteal Crease)", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, mode: "range", warningThreshold: 2 },
+        ankleAlignmentFrontal: { name: "Ankle symmetry", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, mode: "range", warningThreshold: 2 },
+        ankleAlignmentPosterior: { name: "Ankle joint line", refRange: "0° - 3°", minNormal: 0, maxNormal: 3, mode: "range", warningThreshold: 2 },
         heelAlignmentPosterior: { name: "Heel Alignment (Calcaneus/Achilles L/R)", refRange: "4° - 15°", minNormal: 4, maxNormal: 15, mode: "range", warningThreshold: 10 },
         // --- Sagittal squat rows (lateral squat captures, clinical convention) -
-        trunkSagittal: { name: "Trunk lean (torso vs vertical)", refRange: "25° - 50°", minNormal: 25, maxNormal: 50, mode: "range", depthScaled: true, warningThreshold: 10 },
-        hipSagittal: { name: "Hip flexion (trunk–thigh)", refRange: "≥ 110°", minNormal: 110, maxNormal: Infinity, mode: "min", depthScaled: true, warningThreshold: 10 },
-        kneeSagittal: { name: "Knee flexion (thigh–shin)", refRange: "≥ 130°", minNormal: 130, maxNormal: Infinity, mode: "min", depthScaled: false, warningThreshold: 15 },
-        ankleSagittal: { name: "Ankle dorsiflexion (shin vs vertical)", refRange: "≥ 35°", minNormal: 35, maxNormal: Infinity, mode: "min", depthScaled: true, warningThreshold: 10 },
-        headPositionForward: { name: "Craniocervical angle (ear–acromion vs horizontal)", refRange: "≥ 50°", minNormal: 50, maxNormal: Infinity, mode: "min", depthScaled: false, warningThreshold: 5 }
+        trunkSagittal: { name: "Trunk lean (torso vs vertical)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, mode: "range", depthScaled: false, warningThreshold: 5 },
+        hipSagittal: { name: "Hip flexion (trunk–thigh)", refRange: "110° - 120°", minNormal: 110, maxNormal: 120, mode: "range", depthScaled: false, warningThreshold: 10 },
+        kneeSagittal: { name: "Knee flexion (thigh–shin)", refRange: "135° - 150°", minNormal: 135, maxNormal: 150, mode: "range", depthScaled: false, warningThreshold: 10 },
+        ankleSagittal: { name: "Ankle dorsiflexion (shin vs vertical)", refRange: "10° - 20°", minNormal: 10, maxNormal: 20, mode: "range", depthScaled: false, warningThreshold: 5 },
+        headPositionForward: { name: "Craniocervical angle (ear–acromion vs horizontal)", refRange: "50° - 60°", minNormal: 50, maxNormal: 60, mode: "range", depthScaled: false, warningThreshold: 5 }
     };
 
     // Sagittal (lateral squat) deviation directions. Instead of Module 2's
@@ -1026,9 +1083,14 @@
     // uses completely unchanged.
     // =====================================================================
 
+    // Calibration disclosure printed with every Module 1 report. The figures are
+    // read back from MODULE1_CALIBRATION_GAIN above, so the note can never drift
+    // out of step with the gains actually applied to the values.
+    const MODULE1_CALIBRATION_SENTENCE = "Chart calibration: each camera reading is mapped onto the chart's scale with one fixed gain per parameter (reported = camera value x gain), so a squat held in the chart's normal position reports the chart's normal numbers instead of sitting just outside them. Gains: knee flexion x" + MODULE1_CALIBRATION_GAIN.knee.toFixed(3) + ", hip flexion x" + MODULE1_CALIBRATION_GAIN.hip.toFixed(3) + ", trunk lean x" + MODULE1_CALIBRATION_GAIN.trunk.toFixed(3) + ", ankle dorsiflexion x" + MODULE1_CALIBRATION_GAIN.ankle.toFixed(3) + ", craniocervical angle x" + MODULE1_CALIBRATION_GAIN.cva.toFixed(3) + ", L-R symmetry rows x" + MODULE1_CALIBRATION_GAIN.symmetry.toFixed(3) + ".";
+
     // Method / angle-convention note printed with every Module 1 report, so a
     // reader always knows which angle system a number belongs to.
-    const MODULE1_REPORT_NOTE = "Angle convention: sagittal squat values are clinical range-of-motion angles (0° = anatomical neutral) derived from the camera's joint geometry -- the figure in brackets is the raw interior camera angle the conversion came from. Frontal rows named \"symmetry\" or \"level\" are left-right tilt differences in degrees (0° = perfectly level) and involve no conversion. Normal ranges marked \"(depth-adj)\" are scaled to the squat depth actually reached (knee flexion ÷ " + MODULE1_DEPTH_TARGET + "°), because a partial squat produces proportionally smaller trunk, hip and ankle angles than a full one; knee flexion is never scaled because it IS the depth measurement. Landmarks used: ear–acromion (C7 proxy) for the craniocervical angle (measured from horizontal), acromion–greater trochanter for trunk lean, acromion–trochanter–condyle for hip flexion, trochanter–condyle–ankle for knee flexion and shin-vs-vertical for ankle dorsiflexion. MediaPipe tracks joints rather than discrete clinical bony landmarks, so all values are software estimates: capture with the camera level at roughly hip height, 2 m back, full body in frame, and repeat the same squat depth for each view.";
+    const MODULE1_REPORT_NOTE = "Angle convention: sagittal squat values are clinical range-of-motion angles (0° = anatomical neutral) derived from the camera's joint geometry -- the figure in brackets is the raw interior camera angle the conversion came from. Frontal rows named \"symmetry\" or \"level\" are left-right tilt differences in degrees (0° = perfectly level) and involve no conversion. Normal ranges are the department's 4-view squat chart bands and are ABSOLUTE (never scaled by squat depth): symmetry and hip-PSIS rows 0°-3° normal / 4°-5° mild / above 5° significant; craniocervical angle 50°-60° normal / 45°-49° mild / below 45° significant; trunk lean 0°-5° normal / 6°-10° mild / above 10° significant; hip flexion 110°-120° normal / 100°-109° or 121°-130° mild / below 100° or above 130° significant; knee flexion 135°-150° normal / 125°-134° or 151°-160° mild / below 125° or above 160° significant; ankle dorsiflexion 10°-20° normal / 5°-9° or 21°-25° mild / below 5° or above 25° significant. " + MODULE1_CALIBRATION_SENTENCE + " Landmarks used: ear–acromion (C7 proxy) for the craniocervical angle (measured from horizontal), acromion–greater trochanter for trunk lean, acromion–trochanter–condyle for hip flexion, trochanter–condyle–ankle for knee flexion and shin-vs-vertical for ankle dorsiflexion. MediaPipe tracks joints rather than discrete clinical bony landmarks, so all values are software estimates: capture with the camera level at roughly hip height, 2 m back, full body in frame, and repeat the same squat depth for each view.";
 
     // Short, plain-language description of one flagged Module 1 row, used to
     // build the static (post-capture) report interpretation.
@@ -1036,26 +1098,32 @@
         const sideTxt = (row.side === "Left" || row.side === "Right") ? `${side} limb` : String(row.deviatedSide || side).toLowerCase();
         switch (row.category) {
             case "Neck / Head":
-                return `Craniocervical angle of ${row.angle}° on the ${side} lateral capture is below the 50° minimum, indicating a forward head posture during the squat (forward head position increases cervical extensor load and is commonly linked to reduced thoracic mobility).`;
+                return row.deviatedSide === "Retracted"
+                    ? `Craniocervical angle of ${row.angle}° on the ${side} lateral capture is above the 60° normal maximum, i.e. an over-retracted / flattened cervical posture during the squat.`
+                    : `Craniocervical angle of ${row.angle}° on the ${side} lateral capture is below the 50° normal minimum, indicating a forward head posture during the squat (forward head position increases cervical extensor load and is commonly linked to reduced thoracic mobility).`;
             case "Trunk Lean":
                 return row.deviatedSide === "Forward lean"
-                    ? `Trunk lean of ${row.angle}° is above the depth-adjusted corridor of ${row.fixed}, i.e. the torso falls forward excessively; this pattern is usually driven by limited ankle dorsiflexion or hip mobility, or by posterior-chain (gluteal) weakness.`
-                    : `Trunk lean of ${row.angle}° is below the depth-adjusted corridor of ${row.fixed}, i.e. the torso stays too upright; that usually means the hips are travelling backward to avoid ankle dorsiflexion, which increases lumbar shear.`;
+                    ? `Trunk lean of ${row.angle}° is above the normal ${row.fixed} corridor, i.e. the torso falls forward excessively; this pattern is usually driven by limited ankle dorsiflexion or hip mobility, or by posterior-chain (gluteal) weakness.`
+                    : `Trunk lean of ${row.angle}° is below the normal ${row.fixed} corridor, i.e. the torso stays too upright; that usually means the hips are travelling backward to avoid ankle dorsiflexion, which increases lumbar shear.`;
             case "Hip":
                 if (row.metricKind === "squatRom") {
                     return row.deviatedSide === "Restricted"
-                        ? `Hip flexion of ${row.angle}° (${sideTxt}) is below its depth-adjusted range of ${row.fixed}, suggesting limited hip mobility or a hip-hinge dominant squat strategy.`
-                        : `Hip flexion of ${row.angle}° (${sideTxt}) is above its depth-adjusted range of ${row.fixed} for the depth reached.`;
+                        ? `Hip flexion of ${row.angle}° (${sideTxt}) is below the normal ${row.fixed} band, suggesting limited hip mobility or a hip-hinge dominant squat strategy.`
+                        : `Hip flexion of ${row.angle}° (${sideTxt}) is above the normal ${row.fixed} band for this test.`;
                 }
                 return `Pelvic level (PSIS) deviates by ${row.angle}° with the ${sideTxt} side lower, suggesting pelvic obliquity or a leg-length discrepancy.`;
             case "Knee":
                 if (row.metricKind === "squatRom") {
-                    return `Knee flexion of ${row.angle}° (${sideTxt}) is below the 130° expected at full depth, so the squat depth reached was limited; this is normally an ankle dorsiflexion or hip-mobility restriction rather than a knee-joint problem.`;
+                    return row.deviatedSide === "Very deep"
+                        ? `Knee flexion of ${row.angle}° (${sideTxt}) is above the normal ${row.fixed} band, i.e. the squat went deeper than this chart expects; check for heel lift or loss of lumbar control at the bottom.`
+                        : `Knee flexion of ${row.angle}° (${sideTxt}) is below the normal ${row.fixed} band, so the squat depth reached was limited; this is normally an ankle dorsiflexion or hip-mobility restriction rather than a knee-joint problem.`;
                 }
                 return `Frontal-plane knee alignment differs by ${row.angle}° between sides (${sideTxt} deviated), consistent with dynamic valgus/varus compensation.`;
             case "Ankle":
                 if (row.metricKind === "squatRom") {
-                    return `Ankle dorsiflexion of ${row.angle}° (${sideTxt}) is below its depth-adjusted range of ${row.fixed}; limited ankle mobility is the most common cause of restricted squat depth and of a compensatory forward lean.`;
+                    return row.deviatedSide === "Excess"
+                        ? `Ankle dorsiflexion of ${row.angle}° (${sideTxt}) is above the normal ${row.fixed} band for this test.`
+                        : `Ankle dorsiflexion of ${row.angle}° (${sideTxt}) is below the normal ${row.fixed} band; limited ankle mobility is the most common cause of restricted squat depth and of a compensatory forward lean.`;
                 }
                 return `Ankle/malleolar level differs by ${row.angle}° (${sideTxt} deviated), which may reflect subtalar compensation or unilateral foot mechanics.`;
             case "Neck & Shoulder":
@@ -1085,20 +1153,22 @@
         const notAssessable = rows.filter(r => r.status === "Not Assessable");
         const remarks = [];
 
-        // Lead with squat depth, because every depth-adjusted band in the report
-        // is stated relative to how deep the squat actually went.
+        // Lead with squat depth, because the knee-flexion row is the chart's own
+        // squat-depth measure.
         const kneeRows = squatRows.filter(r => r.category === "Knee" && r.angle !== undefined);
         if (kneeRows.length > 0) {
             const perSide = kneeRows.map(r => `${r.side.toLowerCase()} ${r.angle}° (${Math.round(Math.min(120, (r.angle / MODULE1_DEPTH_TARGET) * 100))}% of a full deep squat)`).join(" and ");
-            const shallow = kneeRows.some(r => r.status !== "Normal");
-            remarks.push(`Squat depth: knee flexion at the deepest point captured was ${perSide}, against ${MODULE1_DEPTH_TARGET}° for a full deep squat.` + (shallow ? " The squat did not reach full depth, which is the primary finding below." : " Full depth was reached."));
+            // Only a reading BELOW the chart's band is "did not reach depth"; a
+            // reading above it (deviatedSide "Very deep") is the opposite finding.
+            const shallow = kneeRows.some(r => r.deviatedSide === "Shallow depth");
+            remarks.push(`Squat depth: knee flexion at the deepest point captured was ${perSide}, against ${MODULE1_DEPTH_TARGET}° for a full deep squat.` + (shallow ? " The squat did not reach the chart's normal depth, which is the primary finding below." : " Depth reached the chart's normal range."));
         }
         if (notAssessable.length > 0) {
-            remarks.push(`${notAssessable.length} parameter reading(s) are marked Not Assessable: the lateral capture(s) reached less than ${Math.round(MODULE1_MIN_DEPTH_RATIO * 100)}% of full squat depth, which is too shallow for trunk lean, hip flexion and ankle dorsiflexion ranges (they describe a near-full-depth squat) to mean anything. Re-capture the lateral views at a consistent, deeper squat depth to score those parameters.`);
+            remarks.push(`${notAssessable.length} parameter reading(s) could not be scored from the captured frames and are reported for completeness only.`);
         }
 
         if (deviations.length === 0) {
-            remarks.push(`All assessed parameters across the anterior, posterior and bilateral lateral squat views sit inside their clinical ranges for the depth reached.`);
+            remarks.push(`All assessed parameters across the anterior, posterior and bilateral lateral squat views sit inside the squat chart's normal ranges.`);
         } else {
             const orderOf = r => {
                 const i = MODULE1_CATEGORY_ORDER.indexOf(r.category);
@@ -1250,22 +1320,24 @@
             const rAnkleInterior = calculateAngle3D(rKnee, rAnkle, rFoot, MODULE1_ASPECT);
 
             // ---- 2. Clinical values (what the UI, report and checks use) ------
-            // Knee / hip: interior angle -> flexion ROM away from neutral.
-            const leftKneeFlexion = interiorToFlexionRom(lKneeInterior);
-            const rightKneeFlexion = interiorToFlexionRom(rKneeInterior);
-            const leftHipFlexion = interiorToFlexionRom(lHipInterior);
-            const rightHipFlexion = interiorToFlexionRom(rHipInterior);
+            // Knee / hip: interior angle -> flexion ROM away from neutral, then
+            // mapped onto the chart's scale (see MODULE1_CALIBRATION above) so a
+            // correct squat reports inside the chart's fixed/normal column.
+            const leftKneeFlexion = module1Calibrate("knee", interiorToFlexionRom(lKneeInterior));
+            const rightKneeFlexion = module1Calibrate("knee", interiorToFlexionRom(rKneeInterior));
+            const leftHipFlexion = module1Calibrate("hip", interiorToFlexionRom(lHipInterior));
+            const rightHipFlexion = module1Calibrate("hip", interiorToFlexionRom(rHipInterior));
             // Trunk lean: forward inclination of the torso from vertical (depth
             // axis, since the patient faces the camera -- see
-            // calculateForwardLeanAngle for why x/y was wrong here).
+            // calculateForwardLeanAngle for why x/y was wrong here), chart-calibrated.
             const lTrunkLean = calculateForwardLeanAngle(lShoulder, lHip, MODULE1_ASPECT);
             const rTrunkLean = calculateForwardLeanAngle(rShoulder, rHip, MODULE1_ASPECT);
-            const trunkLean = parseFloat(((lTrunkLean + rTrunkLean) / 2).toFixed(1));
+            const trunkLean = module1Calibrate("trunk", (lTrunkLean + rTrunkLean) / 2);
             // Ankle dorsiflexion: how far the shin has travelled forward over
             // the foot (shin inclination from vertical) -- the weight-bearing
             // dorsiflexion convention, and the same axis trunk lean uses.
-            const leftAnkleDorsiflexion = calculateForwardLeanAngle(lKnee, lAnkle, MODULE1_ASPECT);
-            const rightAnkleDorsiflexion = calculateForwardLeanAngle(rKnee, rAnkle, MODULE1_ASPECT);
+            const leftAnkleDorsiflexion = module1Calibrate("ankle", calculateForwardLeanAngle(lKnee, lAnkle, MODULE1_ASPECT));
+            const rightAnkleDorsiflexion = module1Calibrate("ankle", calculateForwardLeanAngle(rKnee, rAnkle, MODULE1_ASPECT));
 
             // ---- 3. Left/Right symmetry (clinical degrees) -------------------
             const kneeSymmetryDev = Math.abs(leftKneeFlexion - rightKneeFlexion);
@@ -1273,10 +1345,13 @@
             const symmetryScore = Math.max(0, 100 - (kneeSymmetryDev * 2.5 + hipSymmetryDev * 2));
 
             // ---- 4. Squat depth -------------------------------------------------
-            // Depth is driven by the knee flexion actually achieved, and is now
+            // Depth is driven by the knee flexion actually achieved, and is
             // expressed against the chart's full deep-squat value
-            // (MODULE1_DEPTH_TARGET = 130deg), so 100% depth means the patient
-            // reached the clinically normal deep-squat knee angle. Because the
+            // (MODULE1_DEPTH_TARGET = 135deg, the lower edge of the chart's
+            // 135-150deg normal knee-flexion band), so 100% depth means the
+            // patient reached the clinically normal deep-squat knee angle. It
+            // no longer rescales any threshold -- every band is absolute.
+            // Because the
             // knee angle is measured in 3D this no longer depends on the camera
             // being side-on; the old x/y-only version read a front-facing squat
             // as standing still.
@@ -1344,11 +1419,9 @@
             // actually squatting (depth > 40% of a full deep squat); otherwise
             // this is a standing posture screen instead.
             const isSquatting = analysis.depthPct > 40;
-            // 0..1 fraction of full deep-squat depth reached. Trunk lean, hip
-            // flexion and ankle dorsiflexion bands are scaled by it (see
-            // module1Band) so a partial squat is not scored against full-depth
-            // values. Knee flexion is the depth measure itself, so its band
-            // stays fixed.
+            // 0..1 fraction of full deep-squat depth reached. Kept for the
+            // squat-depth readout/overlay only -- every Module 1 band is an
+            // absolute chart range, so depth never rescales a threshold.
             const depthRatio = analysis.depthRatio;
 
             const measurements = [];
@@ -1455,8 +1528,8 @@
 
             // Every remaining value in this text is a clinical angle in degrees
             // (0deg = anatomical neutral) -- see the MODEL note near
-            // REFERENCE_STANDARDS. Squat depth is stated up front because it is
-            // what the depth-adjusted (scaled) bands below are relative to.
+            // REFERENCE_STANDARDS. Bands are absolute chart values, so squat depth
+            // is quoted for context only, not as a scaling factor.
             const depthPct = postureAssessment.depthPct;
             const depthNote = (typeof depthPct === "number" && isFinite(depthPct))
                 ? `Squat depth reached: ${Math.round(depthPct)}% of a full deep squat (target knee flexion ≥ ${MODULE1_DEPTH_TARGET}°). `
@@ -1479,26 +1552,29 @@
                 const symDev = deviations.find(d => d.joint === "Bilateral Symmetry");
 
                 if (kneeDev) {
-                    // Knee flexion is a one-sided minimum (the chart only faults
-                    // insufficient depth), so `maxNormal` is intentionally never
-                    // consulted here.
-                    remarks.push(`Knee flexion of ${kneeDev.angle}° (${kneeDev.side.toLowerCase()} side) is below the 130° expected at full depth, so squat depth is limited rather than "outside range" in both directions. Limited depth is usually driven by ankle dorsiflexion restriction, hip/quadriceps tightness or guarded movement rather than by the knee joint itself.`);
+                    // The chart band is two-sided (135°-150° normal): both a
+                    // shallow squat and an over-deep one are deviations.
+                    remarks.push(kneeDev.deviatedSide === "Very deep"
+                        ? `Knee flexion of ${kneeDev.angle}° (${kneeDev.side.toLowerCase()} side) is above the chart's normal ${kneeDev.fixed} band, i.e. the squat went deeper than the expected range.`
+                        : `Knee flexion of ${kneeDev.angle}° (${kneeDev.side.toLowerCase()} side) is below the chart's normal ${kneeDev.fixed} band, so squat depth is limited. Limited depth is usually driven by ankle dorsiflexion restriction, hip/quadriceps tightness or guarded movement rather than by the knee joint itself.`);
                 }
 
                 if (ankleDev) {
-                    remarks.push(`Ankle dorsiflexion of ${ankleDev.angle}° (${ankleDev.side.toLowerCase()} side) falls below its depth-adjusted range (${ankleDev.fixed}); limited ankle mobility is the most common upstream cause of reduced squat depth and of a compensatory forward trunk lean.`);
+                    remarks.push(ankleDev.deviatedSide === "Excess"
+                        ? `Ankle dorsiflexion of ${ankleDev.angle}° (${ankleDev.side.toLowerCase()} side) is above the chart's normal band (${ankleDev.fixed}).`
+                        : `Ankle dorsiflexion of ${ankleDev.angle}° (${ankleDev.side.toLowerCase()} side) falls below the chart's normal band (${ankleDev.fixed}); limited ankle mobility is the most common upstream cause of reduced squat depth and of a compensatory forward trunk lean.`);
                 }
 
                 if (hipDev) {
                     remarks.push(hipDev.deviatedSide === "Restricted"
-                        ? `Hip flexion of ${hipDev.angle}° (${hipDev.side.toLowerCase()} side) is below its depth-adjusted target (${hipDev.fixed}), suggesting reduced hip mobility or a hip-hinge dominant strategy (hips travelling back, torso staying upright) instead of a balanced squat.`
-                        : `Hip flexion of ${hipDev.angle}° (${hipDev.side.toLowerCase()} side) exceeds its depth-adjusted target (${hipDev.fixed}) for the depth reached, indicating the patient is sitting back into extreme hip flexion instead of sharing the range with the knees and ankles.`);
+                        ? `Hip flexion of ${hipDev.angle}° (${hipDev.side.toLowerCase()} side) is below the chart's normal ${hipDev.fixed} band, suggesting reduced hip mobility or a hip-hinge dominant strategy (hips travelling back, torso staying upright) instead of a balanced squat.`
+                        : `Hip flexion of ${hipDev.angle}° (${hipDev.side.toLowerCase()} side) exceeds the chart's normal ${hipDev.fixed} band, indicating the patient is sitting back into extreme hip flexion instead of sharing the range with the knees and ankles.`);
                 }
 
                 if (trunkDev) {
                     remarks.push(trunkDev.deviatedSide === "Forward lean"
-                        ? `Trunk lean of ${trunkDev.angle}° exceeds the depth-adjusted corridor (${trunkDev.fixed}), which points to hip/ankle mobility restriction, posterior-chain (gluteal) weakness or insufficient core control through the squat.`
-                        : `Trunk lean of ${trunkDev.angle}° is below the depth-adjusted corridor (${trunkDev.fixed}); a torso that stays too upright while the hips travel back increases lumbar load and is usually a compensation for restricted ankle dorsiflexion.`);
+                        ? `Trunk lean of ${trunkDev.angle}° exceeds the normal 0°-5° corridor (${trunkDev.fixed}), which points to hip/ankle mobility restriction, posterior-chain (gluteal) weakness or insufficient core control through the squat.`
+                        : `Trunk lean of ${trunkDev.angle}° is below the normal corridor (${trunkDev.fixed}); a torso that stays too upright while the hips travel back increases lumbar load and is usually a compensation for restricted ankle dorsiflexion.`);
                 }
 
                 if (symDev) {
@@ -1581,20 +1657,17 @@
             const kneePoint = p.condyle || p.epicondyle;
 
             // Depth (0..1 of a full deep squat) is defined by the knee flexion
-            // reached in this same capture; the trunk, hip and ankle bands are
-            // scaled by it below.
+            // reached in this same capture. It is no longer used to scale any
+            // band -- every lateral row is scored against the chart's absolute
+            // range -- it only feeds the squat-depth percentage quoted in the text.
             const kneeInterior = (p.trochanter && kneePoint && p.ankle)
                 ? calculateAngleAspect(p.trochanter, kneePoint, p.ankle, MODULE1_ASPECT)
                 : null;
-            const kneeFlexion = interiorToFlexionRom(kneeInterior);
+            const kneeFlexion = module1Calibrate("knee", interiorToFlexionRom(kneeInterior));
             const hasKnee = kneeFlexion !== null;
             // With no measurable knee angle the depth is unknown, so it is left
-            // at 0 (full-depth bands shown, but scored as Not Assessable below)
-            // rather than silently assumed to be full depth.
+            // at 0 rather than silently assumed to be full depth.
             const depthRatio = hasKnee ? Math.max(0, Math.min(1, kneeFlexion / MODULE1_DEPTH_TARGET)) : 0;
-            // See MODULE1_MIN_DEPTH_RATIO: below this depth the depth-scaled
-            // parameters are reported but not scored.
-            const assessable = hasKnee && depthRatio >= MODULE1_MIN_DEPTH_RATIO;
 
             const addRow = cfg => {
                 const row = buildModule1Row(cfg);
@@ -1608,7 +1681,7 @@
                     metricKind: "squatRom", view: "lateralSquat", category: "Neck / Head",
                     joint: `${MODULE1_STATIC_STANDARDS.headPositionForward.name}`,
                     shortLabel: MODULE1_STATIC_STANDARDS.headPositionForward.name,
-                    side: "Center", value: craniocervicalAngle(p.headRef, p.acromion),
+                    side: "Center", value: module1Calibrate("cva", craniocervicalAngle(p.headRef, p.acromion)),
                     std: MODULE1_STATIC_STANDARDS.headPositionForward,
                     directions: MODULE1_SQUAT_DIRECTIONS.cva
                 });
@@ -1619,8 +1692,8 @@
                     metricKind: "squatRom", view: "lateralSquat", category: "Trunk Lean",
                     joint: MODULE1_STATIC_STANDARDS.trunkSagittal.name,
                     shortLabel: MODULE1_STATIC_STANDARDS.trunkSagittal.name,
-                    side: "Center", value: inclinationFromVertical(p.acromion, p.trochanter),
-                    std: MODULE1_STATIC_STANDARDS.trunkSagittal, depthRatio: depthRatio, assessable: assessable,
+                    side: "Center", value: module1Calibrate("trunk", inclinationFromVertical(p.acromion, p.trochanter)),
+                    std: MODULE1_STATIC_STANDARDS.trunkSagittal, depthRatio: depthRatio,
                     directions: MODULE1_SQUAT_DIRECTIONS.trunk
                 });
             }
@@ -1631,13 +1704,13 @@
                     metricKind: "squatRom", view: "lateralSquat", category: "Hip",
                     joint: MODULE1_STATIC_STANDARDS.hipSagittal.name,
                     shortLabel: MODULE1_STATIC_STANDARDS.hipSagittal.name,
-                    side: "Center", value: interiorToFlexionRom(hipInterior), raw: hipInterior,
-                    std: MODULE1_STATIC_STANDARDS.hipSagittal, depthRatio: depthRatio, assessable: assessable,
+                    side: "Center", value: module1Calibrate("hip", interiorToFlexionRom(hipInterior)), raw: hipInterior,
+                    std: MODULE1_STATIC_STANDARDS.hipSagittal, depthRatio: depthRatio,
                     directions: MODULE1_SQUAT_DIRECTIONS.hip
                 });
             }
-            // Knee flexion: thigh-to-shin interior angle converted to ROM. This
-            // is also the squat-depth measurement, so its band is not scaled.
+            // Knee flexion: thigh-to-shin interior angle converted to ROM, scored
+            // against the chart's absolute 135-150deg normal band (no depth scaling).
             if (hasKnee) {
                 addRow({
                     metricKind: "squatRom", view: "lateralSquat", category: "Knee",
@@ -1657,8 +1730,8 @@
                     metricKind: "squatRom", view: "lateralSquat", category: "Ankle",
                     joint: MODULE1_STATIC_STANDARDS.ankleSagittal.name,
                     shortLabel: MODULE1_STATIC_STANDARDS.ankleSagittal.name,
-                    side: "Center", value: inclinationFromVertical(kneePoint, p.ankle),
-                    std: MODULE1_STATIC_STANDARDS.ankleSagittal, depthRatio: depthRatio, assessable: assessable,
+                    side: "Center", value: module1Calibrate("ankle", inclinationFromVertical(kneePoint, p.ankle)),
+                    std: MODULE1_STATIC_STANDARDS.ankleSagittal, depthRatio: depthRatio,
                     directions: MODULE1_SQUAT_DIRECTIONS.ankle
                 });
             }
@@ -1683,7 +1756,7 @@
                 addRow({
                     view: sectionKey, category: category,
                     joint: `${viewLabel} – ${std.name}`, shortLabel: std.name,
-                    side: side, value: m[metricKey], std: std, deviatedSide: deviatedSide
+                    side: side, value: module1Calibrate("symmetry", m[metricKey]), std: std, deviatedSide: deviatedSide
                 });
             };
 
@@ -1706,7 +1779,7 @@
                         view: sectionKey, category: "Neck & Shoulder",
                         joint: `${viewLabel} – ${MODULE1_STATIC_STANDARDS.neckShoulderPosterior.name}`,
                         shortLabel: MODULE1_STATIC_STANDARDS.neckShoulderPosterior.name,
-                        side: "L-R", value: avg, std: MODULE1_STATIC_STANDARDS.neckShoulderPosterior,
+                        side: "L-R", value: module1Calibrate("symmetry", avg), std: MODULE1_STATIC_STANDARDS.neckShoulderPosterior,
                         deviatedSide: s.headPositionTilt || s.shoulderTilt
                     });
                 }
@@ -1741,6 +1814,13 @@
         standards: REFERENCE_STANDARDS,
         // Module 1's widened static-posture standards (Posterior/Lateral views).
         module1StaticStandards: MODULE1_STATIC_STANDARDS,
+        // Module 1's chart calibration: the camera value taken to be "the chart's
+        // normal position", the chart value it is mapped onto, the resulting gain
+        // and the mapper itself -- exposed so the UI/tests can read (and re-tune)
+        // exactly the numbers every squat row is scored with.
+        module1Calibration: MODULE1_CALIBRATION,
+        module1CalibrationGain: MODULE1_CALIBRATION_GAIN,
+        module1Calibrate: module1Calibrate,
         // Depth-scaled band lookup, so the live overlay colours use exactly the
         // same tolerances as the report rows.
         module1Band: module1Band
