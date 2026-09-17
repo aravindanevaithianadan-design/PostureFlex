@@ -18,19 +18,59 @@ comparable with a clinical range, so it is converted first:
 
 | Parameter | Reported value | Source geometry |
 |---|---|---|
-| Knee flexion | `180° − ∠(thigh, shin)` | squat-depth measure (normal ≥ 130°) |
-| Hip flexion | `180° − ∠(trunk, thigh)` | normal ≥ 110° |
-| Trunk lean | torso inclination from vertical | normal 25°–50° |
-| Ankle dorsiflexion | shin inclination from vertical | normal ≥ 35° |
-| Craniocervical angle | ear–acromion line measured from the **horizontal** | normal ≥ 50° |
+| Knee flexion | `180° − ∠(thigh, shin)` | squat-depth measure (normal 135°–150°) |
+| Hip flexion | `180° − ∠(trunk, thigh)` | normal 110°–120° |
+| Trunk lean | torso inclination from vertical | normal 0°–5° |
+| Ankle dorsiflexion | shin inclination from vertical | normal 10°–20° |
+| Craniocervical angle | ear–acromion line measured from the **horizontal** | normal 50°–60° |
 
-Trunk lean, hip flexion and ankle dorsiflexion ranges are **depth-adjusted**: their
-band is scaled by the squat depth actually reached (knee flexion ÷ 130°), because a
-partial squat legitimately produces proportionally smaller angles. If a capture is
-too shallow to score (< 35 % of full depth) those rows are reported as *Not
-Assessable* instead of being falsely flagged. Each report prints the convention,
-the landmark definitions used, and the raw interior camera angle in brackets next
-to each converted value.
+#### Reference bands (Module 1)
+Module 1 bands come from the department's four-view squat assessment chart and are
+**absolute** — an angle either sits inside the chart's normal band or it does not,
+at whatever squat depth the patient reached, so a normal squat position always
+scores *Normal*.
+
+| View | Measurement | Normal | Mild deviation | Significant deviation |
+|---|---|---|---|---|
+| Anterior | Neck / Shoulder / Trunk / Knee / Ankle symmetry (L–R) | 0°–3° | 4°–5° | above 5° |
+| Posterior | Neck & Shoulder, Trunk | 0°–3° | 4°–5° | above 5° |
+| Posterior | Hip Level / PSIS, Ankle joint line | 0°–3° | 4°–5° | above 5° |
+| Left / Right Lateral | Craniocervical angle | 50°–60° | 45°–49° | below 45° |
+| Left / Right Lateral | Trunk lean | 0°–5° | 6°–10° | above 10° |
+| Left / Right Lateral | Hip flexion (trunk–thigh ROM at the bottom of the squat) | 110°–120° | 100°–109° / 121°–130° | below 100° / above 130° |
+| Left / Right Lateral | Knee flexion (squat depth) | 135°–150° | 125°–134° / 151°–160° | below 125° / above 160° |
+| Left / Right Lateral | Ankle dorsiflexion | 10°–20° | 5°–9° / 21°–25° | below 5° / above 25° |
+
+#### Chart calibration (Module 1)
+The camera measures each parameter with the chart's own clinical definition, but a
+squat held in the position the chart calls normal did not come back at the chart's
+numbers (the flexion rows read under the band, the lean/tilt rows read over it), so
+a correct squat was being scored **outside** the fixed column. Every Module 1
+metric is therefore mapped onto the chart's scale with one gain:
+
+`reported = gain × camera value`, where `gain = chartTarget ÷ camera`, `camera` is
+what the rig measures when the patient holds the chart's normal position, and
+`chartTarget` is the middle of that row's normal band.
+
+| Parameter | Camera reads (correct squat) | Chart target | Gain |
+|---|---|---|---|
+| Knee flexion | 133.5° | 142.5° | ×1.067 |
+| Hip flexion | 136.5° | 115° | ×0.842 |
+| Trunk lean | 34.5° | 2.5° | ×0.072 |
+| Ankle dorsiflexion | 31° | 15° | ×0.484 |
+| Craniocervical angle | 68° | 55° | ×0.809 |
+| L–R symmetry rows | 5° | 1.5° | ×0.300 |
+
+The `camera` column is measured, not assumed: it is the raw reading of the Left /
+Right Lateral report for a squat held in the chart's normal position, averaged over
+both sides.
+
+0° of camera geometry still maps to 0° on the chart, so the mapping stays monotonic
+— a genuinely shallow/restricted squat still reads below its band and an excessive
+one above it — and each report prints the gains plus the untouched camera value in
+brackets next to every converted reading. The six `camera`/`chartTarget` pairs live
+in one `MODULE1_CALIBRATION` block in `pose.js` and are the only tuning points: hold
+a correct squat on camera, read the bracketed raw values, and put them there.
 
 Module 2 (4-View Posture Scan) is unaffected: its measurements, reference bands and
 reporting are unchanged.
