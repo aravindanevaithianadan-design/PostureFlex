@@ -21,7 +21,7 @@ comparable with a clinical range, so it is converted first:
 | Knee flexion | `180° − ∠(thigh, shin)` | squat-depth measure (normal 135°–150°) |
 | Hip flexion | `180° − ∠(trunk, thigh)` | normal 110°–120° |
 | Trunk lean | torso inclination from vertical | normal 0°–5° |
-| Ankle dorsiflexion | shin inclination from vertical | normal 10°–20° |
+| Ankle dorsiflexion | shin inclination from vertical | normal 0°–30° |
 | Craniocervical angle | ear–acromion line measured from the **horizontal** | normal 50°–60° |
 
 #### Reference bands (Module 1)
@@ -39,7 +39,7 @@ scores *Normal*.
 | Left / Right Lateral | Trunk lean | 0°–5° | 6°–10° | above 10° |
 | Left / Right Lateral | Hip flexion (trunk–thigh ROM at the bottom of the squat) | 110°–120° | 100°–109° / 121°–130° | below 100° / above 130° |
 | Left / Right Lateral | Knee flexion (squat depth) | 135°–150° | 125°–134° / 151°–160° | below 125° / above 160° |
-| Left / Right Lateral | Ankle dorsiflexion | 10°–20° | 5°–9° / 21°–25° | below 5° / above 25° |
+| Left / Right Lateral | Ankle dorsiflexion | 0°–30° | 31°–35° | above 35° |
 
 #### Chart calibration (Module 1)
 The camera measures each parameter with the chart's own clinical definition, but a
@@ -67,10 +67,11 @@ both sides.
 
 0° of camera geometry still maps to 0° on the chart, so the mapping stays monotonic
 — a genuinely shallow/restricted squat still reads below its band and an excessive
-one above it — and each report prints the gains plus the untouched camera value in
-brackets next to every converted reading. The six `camera`/`chartTarget` pairs live
-in one `MODULE1_CALIBRATION` block in `pose.js` and are the only tuning points: hold
-a correct squat on camera, read the bracketed raw values, and put them there.
+one above it — and each report prints the gains alongside the converted readings.
+The six `camera`/`chartTarget` pairs live in one `MODULE1_CALIBRATION` block in
+`pose.js` and are the only tuning points (the raw interior camera angle of every
+converted row is still kept on the row as `rawAngle` for diagnostics, it is just not
+printed): hold a correct squat on camera, read the raw values, and put them there.
 
 Module 2 (4-View Posture Scan) is unaffected: its measurements, reference bands and
 reporting are unchanged.
