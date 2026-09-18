@@ -1764,7 +1764,7 @@ function BPT1Module({
         status: row.status
     })), /*#__PURE__*/React.createElement("p", {
         style: { color: "var(--text-muted)", fontSize: 12, marginTop: 4 }
-    }, "Measured values are clinical angles (0° = neutral); bracketed figures on the report are the raw interior camera angles.")) : /*#__PURE__*/React.createElement("p", {
+    }, "Measured values are clinical angles (0° = neutral).")) : /*#__PURE__*/React.createElement("p", {
         style: { color: "var(--text-muted)", fontSize: 13, marginBottom: 12 }
     }, "Align the patient in frame to begin live neck, shoulder, and knee tracking for this view."), /*#__PURE__*/React.createElement("p", {
         style: { color: "var(--text-muted)", fontSize: 13 }
@@ -2856,13 +2856,12 @@ function ReportCanvasPreview({
     // flagged as a deviation; Normal rows show "-" regardless of what was
     // computed under the hood.
     const deviatedSideDisplay = m => (m.status !== "Normal" && m.status !== "Not Assessable" && m.deviatedSide) ? m.deviatedSide : "-";
-    // "Measured Angle" shows the clinical value; when a raw interior camera
-    // angle was converted to produce it (knee/hip), both are shown so no number
-    // is ambiguous about which angle system it belongs to.
+    // "Measured Angle" shows only the clinical value. The raw interior camera
+    // angle a row was converted from is still kept on the row (rawAngle) for
+    // diagnostics, but is no longer printed, so the table stays uncluttered.
     const measuredDisplay = m => {
         const unit = m.unit || "°";
-        const base = `${Math.round(m.angle)}${unit}`;
-        return (m.rawAngle === null || m.rawAngle === undefined) ? base : `${base} (raw ${Math.round(m.rawAngle)}°)`;
+        return `${Math.round(m.angle)}${unit}`;
     };
     const statusClassOf = m => m.status.includes("Significant") ? "text-danger" : m.status.includes("Mild") ? "text-warning" : m.status.includes("Not Assessable") ? "text-muted" : "text-success";
     const renderMeasurementTable = rows => /*#__PURE__*/React.createElement("table", {
