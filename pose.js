@@ -51,7 +51,7 @@
     //   trunk lean                : 0-5deg normal, 6-10deg mild, above 10deg significant
     //   hip flexion               : 110-120deg normal, 100-109 / 121-130deg mild, below 100 / above 130deg significant
     //   knee flexion              : 135-150deg normal, 125-134 / 151-160deg mild, below 125 / above 160deg significant
-    //   ankle dorsiflexion        : 10-20deg normal, 5-9 / 21-25deg mild, below 5 / above 25deg significant
+    //   ankle dorsiflexion        : 0-30deg normal, 31-35deg mild, above 35deg significant
     //
     // Module 2's standards (STATIC_STANDARDS below) are untouched.
     const MODULE1_DEPTH_TARGET = 135; // knee flexion (deg) that defines 100% squat depth (chart normal minimum)
@@ -69,10 +69,11 @@
         // -- the squat is scored with the torso held upright, so any forward lean
         // beyond 5deg is already a deviation on this chart.
         trunk: { name: "Trunk Lean (torso vs vertical)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, mode: "range", depthScaled: false, warningThreshold: 5 },
-        // Chart: Ankle Dorsiflexion 10-20deg normal, mild 5-9 / 21-25deg,
-        // significant below 5 / above 25deg. Measured as shin inclination from
-        // vertical, never as a knee-ankle-toe interior angle.
-        ankle: { name: "Ankle Dorsiflexion (shin vs vertical)", refRange: "10° - 20°", minNormal: 10, maxNormal: 20, mode: "range", depthScaled: false, warningThreshold: 5 }
+        // Ankle Dorsiflexion 0-30deg normal, mild 31-35deg, significant above
+        // 35deg (the department's weight-bearing dorsiflexion band, 0deg =
+        // anatomical neutral). Measured as shin inclination from vertical, never
+        // as a knee-ankle-toe interior angle.
+        ankle: { name: "Ankle Dorsiflexion (shin vs vertical)", refRange: "0° - 30°", minNormal: 0, maxNormal: 30, mode: "range", depthScaled: false, warningThreshold: 5 }
     };
     // =====================================================================
     // MODULE 1 (BPT1) CHART CALIBRATION -- squat analysis ONLY.
@@ -97,8 +98,9 @@
     // Because 0deg of camera geometry still maps to 0deg on the chart, the map is
     // monotonic: a genuinely shallow/restricted squat still reads below its band
     // and a genuinely excessive one above it, just on the chart's scale. The
-    // untouched camera value stays available as `rawAngle` on every row, and the
-    // report prints both, so the calibration is always visible rather than hidden.
+    // untouched camera value stays available as `rawAngle` on every row for
+    // diagnostics, but only the calibrated clinical value is ever displayed, so
+    // the report stays clean.
     //
     // These six numbers are the ONLY tuning points for Module 1's scale. They are
     // currently set from a real capture of a squat held in the chart's normal
@@ -112,7 +114,7 @@
         knee: { camera: 133.5, chartTarget: 142.5 },   // knee flexion (thigh-shin), chart 135-150
         hip: { camera: 136.5, chartTarget: 115 },      // hip flexion (trunk-thigh), chart 110-120
         trunk: { camera: 34.5, chartTarget: 2.5 },     // trunk lean (torso vs vertical), chart 0-5
-        ankle: { camera: 31, chartTarget: 15 },        // ankle dorsiflexion (shin vs vertical), chart 10-20
+        ankle: { camera: 31, chartTarget: 15 },        // ankle dorsiflexion (shin vs vertical), chart 0-30 (15 = mid-band)
         cva: { camera: 68, chartTarget: 55 },          // craniocervical angle, chart 50-60
         symmetry: { camera: 5, chartTarget: 1.5 }      // L-R tilt rows (0deg = level), chart 0-3
     };
@@ -448,7 +450,7 @@
         trunkSagittal: { name: "Trunk lean (torso vs vertical)", refRange: "0° - 5°", minNormal: 0, maxNormal: 5, mode: "range", depthScaled: false, warningThreshold: 5 },
         hipSagittal: { name: "Hip flexion (trunk–thigh)", refRange: "110° - 120°", minNormal: 110, maxNormal: 120, mode: "range", depthScaled: false, warningThreshold: 10 },
         kneeSagittal: { name: "Knee flexion (thigh–shin)", refRange: "135° - 150°", minNormal: 135, maxNormal: 150, mode: "range", depthScaled: false, warningThreshold: 10 },
-        ankleSagittal: { name: "Ankle dorsiflexion (shin vs vertical)", refRange: "10° - 20°", minNormal: 10, maxNormal: 20, mode: "range", depthScaled: false, warningThreshold: 5 },
+        ankleSagittal: { name: "Ankle dorsiflexion (shin vs vertical)", refRange: "0° - 30°", minNormal: 0, maxNormal: 30, mode: "range", depthScaled: false, warningThreshold: 5 },
         headPositionForward: { name: "Craniocervical angle (ear–acromion vs horizontal)", refRange: "50° - 60°", minNormal: 50, maxNormal: 60, mode: "range", depthScaled: false, warningThreshold: 5 }
     };
 
@@ -1090,7 +1092,7 @@
 
     // Method / angle-convention note printed with every Module 1 report, so a
     // reader always knows which angle system a number belongs to.
-    const MODULE1_REPORT_NOTE = "Angle convention: sagittal squat values are clinical range-of-motion angles (0° = anatomical neutral) derived from the camera's joint geometry -- the figure in brackets is the raw interior camera angle the conversion came from. Frontal rows named \"symmetry\" or \"level\" are left-right tilt differences in degrees (0° = perfectly level) and involve no conversion. Normal ranges are the department's 4-view squat chart bands and are ABSOLUTE (never scaled by squat depth): symmetry and hip-PSIS rows 0°-3° normal / 4°-5° mild / above 5° significant; craniocervical angle 50°-60° normal / 45°-49° mild / below 45° significant; trunk lean 0°-5° normal / 6°-10° mild / above 10° significant; hip flexion 110°-120° normal / 100°-109° or 121°-130° mild / below 100° or above 130° significant; knee flexion 135°-150° normal / 125°-134° or 151°-160° mild / below 125° or above 160° significant; ankle dorsiflexion 10°-20° normal / 5°-9° or 21°-25° mild / below 5° or above 25° significant. " + MODULE1_CALIBRATION_SENTENCE + " Landmarks used: ear–acromion (C7 proxy) for the craniocervical angle (measured from horizontal), acromion–greater trochanter for trunk lean, acromion–trochanter–condyle for hip flexion, trochanter–condyle–ankle for knee flexion and shin-vs-vertical for ankle dorsiflexion. MediaPipe tracks joints rather than discrete clinical bony landmarks, so all values are software estimates: capture with the camera level at roughly hip height, 2 m back, full body in frame, and repeat the same squat depth for each view.";
+    const MODULE1_REPORT_NOTE = "Angle convention: sagittal squat values are clinical range-of-motion angles (0° = anatomical neutral) derived from the camera's joint geometry. Frontal rows named \"symmetry\" or \"level\" are left-right tilt differences in degrees (0° = perfectly level) and involve no conversion. Normal ranges are the department's 4-view squat chart bands and are ABSOLUTE (never scaled by squat depth): symmetry and hip-PSIS rows 0°-3° normal / 4°-5° mild / above 5° significant; craniocervical angle 50°-60° normal / 45°-49° mild / below 45° significant; trunk lean 0°-5° normal / 6°-10° mild / above 10° significant; hip flexion 110°-120° normal / 100°-109° or 121°-130° mild / below 100° or above 130° significant; knee flexion 135°-150° normal / 125°-134° or 151°-160° mild / below 125° or above 160° significant; ankle dorsiflexion 0°-30° normal / 31°-35° mild / above 35° significant. " + MODULE1_CALIBRATION_SENTENCE + " Landmarks used: ear–acromion (C7 proxy) for the craniocervical angle (measured from horizontal), acromion–greater trochanter for trunk lean, acromion–trochanter–condyle for hip flexion, trochanter–condyle–ankle for knee flexion and shin-vs-vertical for ankle dorsiflexion. MediaPipe tracks joints rather than discrete clinical bony landmarks, so all values are software estimates: capture with the camera level at roughly hip height, 2 m back, full body in frame, and repeat the same squat depth for each view.";
 
     // Short, plain-language description of one flagged Module 1 row, used to
     // build the static (post-capture) report interpretation.
